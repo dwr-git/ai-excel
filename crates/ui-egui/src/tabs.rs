@@ -352,13 +352,13 @@ pub fn status_bar(app: &mut SheetApp, ui: &mut Ui) {
                         };
                         let mut parts = Vec::new();
                         if st.numeric > 0 {
-                            parts.push(format!("Sum: {}", fmt(st.sum)));
+                            parts.push(format!("{}: {}", app.ui.language.tr("Sum"), fmt(st.sum)));
                         }
                         if st.count > 0 {
-                            parts.push(format!("Count: {}", st.count));
+                            parts.push(format!("{}: {}", app.ui.language.tr("Count"), st.count));
                         }
                         if let Some(a) = st.average {
-                            parts.push(format!("Average: {}", fmt(a)));
+                            parts.push(format!("{}: {}", app.ui.language.tr("Average"), fmt(a)));
                         }
                         for p in parts {
                             ui.label(egui::RichText::new(p).font(theme::ui_font(12.5)).color(t.text_dim));
