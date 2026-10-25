@@ -1,15 +1,25 @@
 //! The browser shell: web `Services`, drag-and-drop, and the eframe web runner.
+//!
+//! AI-Excel: the page's assistant panel and server files talk to the app through
+//! `window.aiexcel` ([`bridge`]); saves go to the page, the title bar's house leads back to the
+//! site, and the AI chip by the selection opens the page's AI menu.
 
 use gridcraft_engine::Session;
 use gridcraft_ui_egui::{Inbox, Services, SheetApp};
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::JsValue;
 
+mod bridge;
+
 const CANVAS_ID: &str = "gridcraft_canvas";
 const LOADING_ID: &str = "gridcraft_loading";
 
 pub fn start() {
     eframe::WebLogger::init(log::LevelFilter::Info).ok();
+    // The page's assistant panel and server files (`window.aiexcel`).
+    if let Err(e) = bridge::install() {
+        log::error!("couldn't install window.aiexcel: {e:?}");
+    }
     wasm_bindgen_futures::spawn_local(async {
         let Some(document) = web_sys::window().and_then(|w| w.document()) else {
             log::error!("no document");
@@ -58,7 +68,10 @@ pub fn start() {
                     if let Some(bridge) = &app_bridge {
                         bridge.connect(&mut services, inbox.clone(), cc.egui_ctx.clone());
                     }
+                    let (requests, control) = std::sync::mpsc::channel();
+                    bridge::connect(requests, inbox.clone(), cc.egui_ctx.clone());
                     let mut app = SheetApp::new(session, services);
+                    app.control_rx = Some(control);
                     app.ui.system_theme = true;
                     // Follow the browser's language, except a CJK one: the web build has no system
                     // CJK fonts (none are bundled), so that interface would render as tofu.
@@ -72,7 +85,22 @@ pub fn start() {
                     // Preferences from an earlier visit (#1562), as the desktop app reads `ui.json`
                     // and `prefs.json`; a saved language replaces the browser's.
                     let (stored_ui, stored_prefs) = (stored(crate::prefs::UI_KEY), stored(crate::prefs::PREFS_KEY));
+                    // AI-Excel's first start: the Russian interface and the Brand theme (Light, Dark and
+                    // System stay in File › Options and the View tab).
+                    let first_ui = stored_ui.is_none();
+                    let first_prefs = stored_prefs.is_none();
                     crate::prefs::restore(&mut app, stored_ui.as_deref(), stored_prefs.as_deref());
+                    if first_ui {
+                        app.ui.language = gridcraft_ui_egui::i18n::Language::Ru;
+                        app.ui.brand = true;
+                        app.ui.system_theme = false;
+                    }
+                    // New workbooks as Russian users expect them: «Книга1» on A4.
+                    if first_prefs {
+                        app.session.prefs.new_paper = "A4".into();
+                        app.session.prefs.new_book_name = "Книга".into();
+                        app.session.prefs.user_name = "Пользователь".into();
+                    }
                     let mut prefs = crate::prefs::PrefsSync::new(stored_ui, stored_prefs);
                     SheetApp::setup_context_for_language(&cc.egui_ctx, false, app.ui.language);
                     if let Some(bridge) = &app_bridge {
@@ -92,7 +120,10 @@ pub fn start() {
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
-                Err(e) => el.set_inner_html(&format!("<p>GridCraft failed to start: {e:?}</p><p>A browser with WebGPU or WebGL2 is required.</p>")),
+                Err(e) => el.set_inner_html(&format!(
+                    "<p>AI-Excel не запустился: {}</p><p>Нужен браузер с WebGPU или WebGL2: свежий Chrome, Edge, Firefox или Safari.</p>",
+                    format!("{e:?}").replace('&', "&amp;").replace('<', "&lt;")
+                )),
             }
         }
     });
@@ -140,6 +171,7 @@ impl eframe::App for WebShell {
             });
         }
         self.app.logic(ctx);
+        bridge::poll_replies();
         // Store changed preferences straight away: a reload or closed tab runs no exit code (#1562).
         let changed = self.prefs.changed(&self.app);
         if !changed.is_empty() {
@@ -165,6 +197,8 @@ impl eframe::App for WebShell {
         if let Some(bridge) = &self.bridge {
             bridge.sync(&mut self.app);
         }
+        // Whether there is anything to save, for the page (its autosave and leave-page guard).
+        bridge::dirty(self.app.session.documents().iter().any(|d| d.is_dirty()));
     }
 }
 
@@ -220,7 +254,29 @@ fn services(inbox: Inbox, ctx: egui::Context) -> Services {
             }
         })),
         inbox: Some(inbox),
+        // AI-Excel: saves go to the page (the user's files on the server) while it takes them.
+        save_to_page: Some(Box::new(bridge::save_to_page)),
+        // The title bar's way back to the site (studio/config.js: homeUrl).
+        go_home: Some(Box::new(go_home)),
+        // The AI chip by the selection and the cell menu's AI Assistant… open the page's AI menu.
+        ai_assist: Some(Box::new(bridge::ai_menu)),
         ..Default::default()
+    }
+}
+
+/// Leave the editor for the site it lives on: `window.STUDIO_CONFIG.homeUrl` (studio/config.js,
+/// made absolute by the panel), one level up without it.
+fn go_home() {
+    let Some(window) = web_sys::window() else { return };
+    let url = js_sys::Reflect::get(&window, &"STUDIO_CONFIG".into())
+        .ok()
+        .filter(|c| c.is_object())
+        .and_then(|c| js_sys::Reflect::get(&c, &"homeUrl".into()).ok())
+        .and_then(|u| u.as_string())
+        .filter(|u| !u.trim().is_empty())
+        .unwrap_or_else(|| "../".to_string());
+    if let Err(e) = window.location().set_href(&url) {
+        log::error!("couldn't go to {url}: {e:?}");
     }
 }
 

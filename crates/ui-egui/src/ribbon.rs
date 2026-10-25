@@ -125,6 +125,17 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             let left_end = ui.min_rect().right();
             let right = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
+                // AI-Excel on the web: the way back to the site the editor lives on, at the far right.
+                if app.services.go_home.is_some() {
+                    let home = icon_button(ui, Icon::House, t.text, "To the site", vec2(30.0, ch)).on_hover_cursor(egui::CursorIcon::PointingHand);
+                    home.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, app.ui.language.tr("To the site")));
+                    if home.clicked()
+                        && let Some(go) = app.services.go_home.as_ref()
+                    {
+                        go();
+                    }
+                    ui.add_space(6.0);
+                }
                 let __k = icon_button(ui, Icon::Search, t.text_dim, "Search commands", vec2(28.0, ch));
                 control_keytip(app, ui, &__k, "commandSearch");
                 if __k.clicked() {
@@ -329,7 +340,7 @@ fn file_menu(app: &mut SheetApp, ui: &mut Ui) {
 fn theme_choices(app: &mut SheetApp, ui: &mut Ui) {
     let lang = app.ui.language;
     let mode = app.ui.theme_mode();
-    for (value, label) in [("system", "System"), ("light", "Light"), ("dark", "Dark")] {
+    for (value, label) in crate::THEME_CHOICES {
         if ui.radio(mode == value, lang.tr(label)).clicked() {
             act(app, "view.theme", json!({"mode": value}));
             ui.close();
@@ -2356,13 +2367,9 @@ fn view(app: &mut SheetApp, ui: &mut Ui) {
     ui.vertical(|ui| {
         ui.label(lang.tr("Display theme"));
         let mode = app.ui.theme_mode();
-        let label = match mode {
-            "system" => "System",
-            "dark" => "Dark",
-            _ => "Light",
-        };
+        let label = crate::THEME_CHOICES.iter().find(|(v, _)| *v == mode).map_or("Light", |(_, label)| *label);
         egui::ComboBox::from_id_salt("display_theme").selected_text(lang.tr(label)).width(88.0).show_ui(ui, |ui| {
-            for (value, label) in [("system", "System"), ("light", "Light"), ("dark", "Dark")] {
+            for (value, label) in crate::THEME_CHOICES {
                 if ui.selectable_label(mode == value, lang.tr(label)).clicked() {
                     act(app, "view.theme", json!({"mode": value}));
                 }
@@ -2417,7 +2424,7 @@ fn automate(app: &mut SheetApp, ui: &mut Ui) {
     if __k.clicked() {
         app.open_dialog("commandSearch", json!({}));
     }
-    let __k = big_button(ui, Icon::Script, "Agent\nControl", "How agents drive GridCraft (MCP / control channel)", false);
+    let __k = big_button(ui, Icon::Script, "Agent\nControl", "How agents drive AI-Excel (MCP / control channel)", false);
     control_keytip(app, ui, &__k, "agents");
     if __k.clicked() {
         app.open_dialog("agents", json!({}));
@@ -2427,7 +2434,7 @@ fn automate(app: &mut SheetApp, ui: &mut Ui) {
     if __k.clicked() {
         app.open_dialog("journal", json!({}));
     }
-    let __k = big_button(ui, Icon::Script, "About\nGridCraft", "Version, contributors and the AI models that helped", false);
+    let __k = big_button(ui, Icon::Script, "About\nAI-Excel", "Version, contributors and the AI models that helped", false);
     control_keytip(app, ui, &__k, "about");
     if __k.clicked() {
         app.open_dialog("about", json!({}));

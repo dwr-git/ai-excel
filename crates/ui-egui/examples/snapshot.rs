@@ -2,7 +2,10 @@
 //!
 //! `cargo run --release -p gridcraft-ui-egui --example snapshot -- [--sample sales] [--in file.xlsx]
 //!  [--size 1440x900] [--scale 2] [--cmd 'id={json}']... [--tab Insert] [--dark] [--language en|es|zh|ja|ko|ru|pt|de|cs|fr|tr]
-//!  [--dialog 'name={json}'] [--hf-edit header|footer] out.png`
+//!  [--dialog 'name={json}'] [--hf-edit header|footer] [--brand] [--web] out.png`
+//!
+//! `--brand` draws AI-Excel's Brand theme; `--web` gives the window the web page's hooks (the
+//! title bar's house, the AI chip by the selection) as AI-Excel in the browser has them.
 
 use gridcraft_engine::Session;
 use gridcraft_ui_egui::SheetApp;
@@ -17,6 +20,8 @@ fn main() {
     let mut cmds: Vec<String> = vec![];
     let mut tab = None;
     let mut dark = false;
+    let mut brand = false;
+    let mut web = false;
     let mut pane: Option<String> = None;
     let mut chart: Option<u32> = None;
     let mut dialog: Option<String> = None;
@@ -55,6 +60,8 @@ fn main() {
                 tab = args.get(i).cloned();
             }
             "--dark" => dark = true,
+            "--brand" => brand = true,
+            "--web" => web = true,
             "--pane" => {
                 i += 1;
                 pane = args.get(i).cloned();
@@ -104,8 +111,19 @@ fn main() {
                 app.ui(ui);
             },
             {
-                let mut app = SheetApp::new(session, Default::default());
+                let services = if web {
+                    gridcraft_ui_egui::Services {
+                        go_home: Some(Box::new(|| {})),
+                        ai_assist: Some(Box::new(|_, _| {})),
+                        save_to_page: Some(Box::new(|_, _, _| Ok(true))),
+                        ..Default::default()
+                    }
+                } else {
+                    Default::default()
+                };
+                let mut app = SheetApp::new(session, services);
                 app.ui.dark = dark;
+                app.ui.brand = brand;
                 if let Some(code) = &language
                     && let Some(l) = gridcraft_ui_egui::i18n::Language::parse(code)
                 {

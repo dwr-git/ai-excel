@@ -135,7 +135,7 @@ pub(crate) fn paint_pages(
 ) -> Vec<((u32, u32), (u32, u32), Rect)> {
     let mut quads = Vec::new();
     let Some(pg) = geo.paper.clone() else { return quads };
-    p.rect_filled(geo.cells, 0.0, t.desk);
+    crate::theme::paint_desk(p, geo.cells, t.desk);
     let cells = p.with_clip_rect(geo.cells);
     let mut painted = 0usize;
     for (i, j) in pages_iter(geo, &pg) {

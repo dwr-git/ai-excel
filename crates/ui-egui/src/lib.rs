@@ -45,6 +45,13 @@ use serde_json::{Value as Json, json};
 pub use control::{ControlRequest, ControlResponse};
 pub mod desktop_theme;
 
+/// The product name in window titles, message boxes and About (AI-Excel, based on GridCraft).
+pub const PRODUCT: &str = "AI-Excel";
+
+/// The display themes, in menu order: `(view.theme mode, English label)`. Brand is AI-Excel's own
+/// and the default on the web; System follows the desktop's light/dark choice.
+pub const THEME_CHOICES: [(&str, &str); 4] = [("brand", "Brand"), ("system", "System"), ("light", "Light"), ("dark", "Dark")];
+
 /// Persisted UI preferences.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -52,6 +59,9 @@ pub struct UiState {
     /// The manual preference, retained when following the system appearance.
     pub dark: bool,
     pub system_theme: bool,
+    /// AI-Excel's Brand theme (navy chrome, the brand's blue-violet accent, solid black menus);
+    /// drawn as egui's dark theme with [`theme::Tokens::brand`]. Off for Light, Dark and System.
+    pub brand: bool,
     pub ribbon_tab: String,
     pub ribbon_collapsed: bool,
     pub formula_bar_expanded: bool,
@@ -101,6 +111,7 @@ impl Default for UiState {
         UiState {
             dark: false,
             system_theme: false,
+            brand: false,
             ribbon_tab: "Home".into(),
             ribbon_collapsed: false,
             formula_bar_expanded: false,
@@ -126,7 +137,9 @@ impl UiState {
     }
 
     pub fn theme_preference(&self) -> egui::ThemePreference {
-        if self.system_theme {
+        if self.brand {
+            egui::ThemePreference::Dark
+        } else if self.system_theme {
             egui::ThemePreference::System
         } else if self.dark {
             egui::ThemePreference::Dark
@@ -141,7 +154,9 @@ impl UiState {
     }
 
     pub fn theme_mode(&self) -> &'static str {
-        if self.system_theme {
+        if self.brand {
+            "brand"
+        } else if self.system_theme {
             "system"
         } else if self.dark {
             "dark"
@@ -209,6 +224,18 @@ pub struct Services {
     /// Web: hand PDF bytes to the browser's print flow directly (no download,
     /// no intermediate file) — opens the system print dialog on that PDF.
     pub print: Option<Box<dyn Fn(&[u8])>>,
+    /// Web (AI-Excel): hand a saved workbook to the page, which keeps it in the user's files on the
+    /// server, instead of downloading it: (file name, the bytes, whether a new name was asked for —
+    /// Save As). `Ok(true)` when the page took it (the workbook then counts as saved); `Ok(false)`
+    /// downloads as usual. The page reports a failed upload itself.
+    pub save_to_page: Option<Box<dyn Fn(&str, &[u8], bool) -> Result<bool, String>>>,
+    /// Web (AI-Excel): leave the editor for the site it lives on (`STUDIO_CONFIG.homeUrl`). The
+    /// title bar shows a house for it when set.
+    pub go_home: Option<Box<dyn Fn()>>,
+    /// Web (AI-Excel): open the page's AI menu for the selected cells at this point of the window
+    /// (egui points). The grid shows an AI chip by the selection and the cell context menu an
+    /// "AI Assistant…" item when set.
+    pub ai_assist: Option<Box<dyn Fn(f32, f32)>>,
 }
 
 /// Shared queue of files read asynchronously (browser file picker, drag and drop).
@@ -424,6 +451,15 @@ impl SheetApp {
         if let Some(r) = self.run_ui_command(id, &params) {
             return r;
         }
+        // AI-Excel on the web: Save and Save As of a workbook with no file of its own go to the page,
+        // which keeps them in the user's files on the server.
+        if matches!(id, "file.save" | "file.saveAs")
+            && params.get("path").and_then(Json::as_str).is_none_or(str::is_empty)
+            && self.session.active().is_some_and(|d| d.path.is_none())
+            && let Some(r) = self.save_workbook_to_page(id == "file.saveAs")
+        {
+            return r;
+        }
         let r = self.session.run(id, params);
         self.after_engine();
         // The new chart is selected, as after inserting any object, so Delete removes it, not its data.
@@ -439,6 +475,33 @@ impl SheetApp {
             self.deliver_pdf(r);
         }
         r
+    }
+
+    /// Hand the active workbook, as .xlsx, to the page's [`Services::save_to_page`]. `None` when
+    /// there is no such hook or the page doesn't take saves (the usual Save path runs then).
+    fn save_workbook_to_page(&mut self, save_as: bool) -> Option<Result<Json, String>> {
+        let to_page = self.services.save_to_page.as_ref()?;
+        let encoded = match self.session.run("file.saveBytes", json!({"format": "xlsx"})) {
+            Ok(r) => r,
+            Err(e) => return Some(Err(e)),
+        };
+        let name = encoded.get("name").and_then(Json::as_str).unwrap_or("Book.xlsx").to_string();
+        let Some(bytes) = encoded.get("base64").and_then(Json::as_str).and_then(gridcraft_engine::io::base64_decode) else {
+            return Some(Err("Couldn't encode the workbook.".into()));
+        };
+        match to_page(&name, &bytes, save_as) {
+            Ok(true) => {
+                if let Some(d) = self.session.active_mut() {
+                    d.saved = d.wb.clone();
+                }
+                Some(Ok(json!({"savedToPage": name, "bytes": bytes.len()})))
+            }
+            Ok(false) => None,
+            Err(e) => {
+                let msg = format!("{} {name}: {e}", self.ui.language.tr("Couldn't save"));
+                Some(Err(msg))
+            }
+        }
     }
 
     /// Copy or cut the selected cells to the system clipboard. Engine-only commands keep
@@ -587,7 +650,7 @@ impl SheetApp {
         if e.contains("is not available right now") {
             self.toast = Some((e, now_ms()));
         } else {
-            self.message = Some(("GridCraft".into(), clean_error(&e)));
+            self.message = Some((crate::PRODUCT.into(), clean_error(&e)));
         }
     }
 
@@ -636,16 +699,25 @@ impl SheetApp {
                 let current = if self.ui.system_theme { self.effective_dark } else { self.ui.dark };
                 self.ui.dark = p.get("on").and_then(Json::as_bool).unwrap_or(!current);
                 self.ui.system_theme = false;
+                self.ui.brand = false;
                 Ok(json!({"on": self.ui.dark}))
             }
             "view.theme" => {
-                match p.get("mode").and_then(Json::as_str) {
-                    Some("system") => self.ui.system_theme = true,
+                match p.get("mode").or_else(|| p.get("value")).and_then(Json::as_str) {
+                    Some("system") => {
+                        self.ui.system_theme = true;
+                        self.ui.brand = false;
+                    }
                     Some(mode @ ("light" | "dark")) => {
                         self.ui.dark = mode == "dark";
                         self.ui.system_theme = false;
+                        self.ui.brand = false;
                     }
-                    _ => return Some(Err("theme mode must be system, light, or dark".into())),
+                    Some("brand") => {
+                        self.ui.brand = true;
+                        self.ui.system_theme = false;
+                    }
+                    _ => return Some(Err("theme mode must be brand, system, light, or dark".into())),
                 }
                 Ok(json!({"mode": self.ui.theme_mode()}))
             }
@@ -724,6 +796,21 @@ impl SheetApp {
                 }),
                 None => Json::Null,
             }),
+            // The page names the workbook after the file it saved it as in the user's files.
+            "file.rename" => {
+                let name: String = p.get("name").and_then(Json::as_str).unwrap_or("").trim().chars().take(200).collect();
+                if name.is_empty() || name.contains(['/', '\\']) {
+                    return Some(Err("file.rename needs {name}: a file name without folders".into()));
+                }
+                let title = if std::path::Path::new(&name).extension().is_some() { name } else { format!("{name}.xlsx") };
+                match self.session.active_mut() {
+                    Some(d) => {
+                        d.title = title.clone();
+                        Ok(json!({"title": title}))
+                    }
+                    None => Err("no workbook is open".into()),
+                }
+            }
             "ui.notice.dismiss" => {
                 self.notice = None;
                 Ok(Json::Null)
@@ -738,7 +825,7 @@ impl SheetApp {
         for req in self.session.take_ui_requests() {
             match req {
                 UiRequest::Dialog(name, params) => self.open_dialog(&name, params),
-                UiRequest::Message(m) => self.message = Some(("GridCraft".into(), m)),
+                UiRequest::Message(m) => self.message = Some((crate::PRODUCT.into(), m)),
                 UiRequest::EditCell(text) => {
                     let text = text.map(|text| {
                         self.session
@@ -794,6 +881,15 @@ impl SheetApp {
             }
             "saveAs" => {
                 let suggested = self.session.active().map(|d| d.display_title()).unwrap_or_else(|| "Book1".into());
+                // AI-Excel on the web: File › Save As goes to the page (the user's files on the server).
+                if self.services.pick_save.is_none()
+                    && let Some(r) = self.save_workbook_to_page(true)
+                {
+                    if let Err(e) = r {
+                        self.alert(e);
+                    }
+                    return;
+                }
                 if let Some(pick) = &self.services.pick_save {
                     if let Some(path) = pick(&suggested) {
                         let path = if std::path::Path::new(&path).extension().is_none() { format!("{path}.xlsx") } else { path };
@@ -838,7 +934,7 @@ impl SheetApp {
             Ok(r) => self.after_open(Some(path), &r),
             // A password-protected workbook: ask for the password; the dialog opens it.
             Err(e) if e.contains(gridcraft_engine::io::PASSWORD_REQUIRED) => self.open_dialog("openPassword", json!({"path": path})),
-            Err(e) => self.message = Some(("GridCraft".into(), clean_error(&e))),
+            Err(e) => self.message = Some((crate::PRODUCT.into(), clean_error(&e))),
         }
         self.after_engine();
     }
@@ -877,7 +973,7 @@ impl SheetApp {
             let text = if dropped {
                 "This workbook's VBA macros could not be loaded and were dropped, so they will not be in the saved file. Keep the original file."
             } else {
-                "This workbook contains VBA macros. GridCraft keeps them when you save as .xlsm, but does not run them."
+                "This workbook contains VBA macros. AI-Excel keeps them when you save as .xlsm, but does not run them."
             };
             self.notice = Some(Notice { text: text.into(), kind: NoticeKind::Warning, action: Some(("What this means".into(), "macros".into())) });
         } else {
@@ -989,7 +1085,7 @@ impl SheetApp {
         let text = match self.session.active().map(|d| formula_locale::canonical(&text, ed.locale, &d.wb, ed.sheet, ed.cell)) {
             Some(Ok(text)) => text,
             Some(Err(error)) => {
-                self.message = Some(("GridCraft".into(), error.to_string()));
+                self.message = Some((crate::PRODUCT.into(), error.to_string()));
                 self.editor = Some(ed);
                 self.session.mode = gridcraft_engine::Mode::Edit;
                 return false;
@@ -1001,7 +1097,7 @@ impl SheetApp {
             && let Some((dv, msg)) = gridcraft_engine::cmd::data::check_validation(&d.wb, ed.sheet, ed.cell, &text)
         {
             if dv.error_style == gridcraft_engine::model::ErrorStyle::Stop {
-                let title = if dv.error_title.is_empty() { "GridCraft".to_string() } else { dv.error_title.clone() };
+                let title = if dv.error_title.is_empty() { crate::PRODUCT.to_string() } else { dv.error_title.clone() };
                 self.message = Some((title, msg));
                 self.editor = Some(ed);
                 self.session.mode = gridcraft_engine::Mode::Edit;
@@ -1013,7 +1109,7 @@ impl SheetApp {
         if self.session.active().is_some_and(|d| d.wb.active_sheet != ed.sheet)
             && let Err(e) = self.session.run("sheet.activate", json!({"sheet": ed.sheet}))
         {
-            self.message = Some(("GridCraft".into(), clean_error(&e)));
+            self.message = Some((crate::PRODUCT.into(), clean_error(&e)));
             self.editor = Some(ed);
             self.session.mode = gridcraft_engine::Mode::Edit;
             return false;
@@ -1044,7 +1140,7 @@ impl SheetApp {
                 true
             }
             Err(e) => {
-                self.message = Some(("GridCraft".into(), clean_error(&e)));
+                self.message = Some((crate::PRODUCT.into(), clean_error(&e)));
                 self.editor = Some(ed);
                 self.session.mode = gridcraft_engine::Mode::Edit;
                 false
@@ -1200,11 +1296,16 @@ impl SheetApp {
                 }
             }
         }
+        // The Brand theme lives in egui's dark slot: swap the palette when it is turned on or off.
+        if theme::brand_on() != self.ui.brand {
+            theme::set_brand(ctx, self.ui.brand);
+            ctx.request_repaint();
+        }
         if let Some(answer) = self.desktop_theme.take_change() {
             self.desktop_dark = Some(answer);
         }
         let preference = match (
-            self.ui.system_theme,
+            self.ui.system_theme && !self.ui.brand,
             ctx.system_theme().or_else(|| self.desktop_dark.map(|d| if d { egui::Theme::Dark } else { egui::Theme::Light })),
         ) {
             (true, Some(egui::Theme::Dark)) => egui::ThemePreference::Dark,
@@ -1253,7 +1354,7 @@ impl SheetApp {
                     self.backstage = None;
                     self.open_dialog("openPassword", json!({"name": name, "base64": b64}));
                 }
-                Err(e) => self.message = Some(("GridCraft".into(), clean_error(&e))),
+                Err(e) => self.message = Some((crate::PRODUCT.into(), clean_error(&e))),
             }
             self.after_engine();
         }

@@ -4661,3 +4661,24 @@ fn a_script_cannot_switch_windows() {
 }
 
 mod seams;
+
+/// AI-Excel's web app names new workbooks in Russian and sets them up on A4; the defaults keep
+/// Book1 on Letter.
+#[test]
+fn new_workbooks_take_the_name_and_paper_from_the_preferences() {
+    let mut s = Session::new();
+    s.new_workbook();
+    let d = s.doc().unwrap();
+    assert_eq!(d.title, "Book1");
+    assert_eq!(d.wb.active().unwrap().print.paper, "Letter");
+    s.prefs.new_book_name = "Книга".into();
+    s.prefs.new_paper = "A4".into();
+    s.new_workbook();
+    let d = s.doc().unwrap();
+    assert_eq!(d.title, "Книга1");
+    assert_eq!(d.wb.active().unwrap().print.paper, "A4");
+    assert!(!d.is_dirty(), "a new workbook has nothing to save");
+    s.prefs.new_book_name = "a/b\u{0}".into();
+    s.new_workbook();
+    assert_eq!(s.doc().unwrap().title, "ab1", "no folders or control characters in the name");
+}

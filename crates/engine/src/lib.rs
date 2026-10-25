@@ -347,6 +347,12 @@ pub struct Prefs {
     pub user_dictionary: Vec<String>,
     /// View › Show › Formula Bar (an application option in Excel, not saved in the file).
     pub formula_bar: bool,
+    /// Paper size for the sheets of a new workbook (a `pageLayout.size` name such as "A4"); empty
+    /// keeps the model's default (Letter). AI-Excel's web app starts with A4.
+    pub new_paper: String,
+    /// Name stem of new workbooks ("Book" → Book1, Book2…; AI-Excel in Russian: "Книга"). Empty
+    /// means "Book".
+    pub new_book_name: String,
 }
 
 impl Default for Prefs {
@@ -361,6 +367,8 @@ impl Default for Prefs {
             r1c1: false,
             user_dictionary: vec![],
             formula_bar: true,
+            new_paper: String::new(),
+            new_book_name: String::new(),
         }
     }
 }
@@ -478,13 +486,23 @@ impl Session {
     }
     /// A new blank workbook titled `BookN`.
     pub fn new_workbook(&mut self) -> usize {
-        let n = (1..).find(|n| !self.docs.iter().any(|d| d.title == format!("Book{n}") && d.path.is_none())).unwrap_or(1);
+        let stem: String = match self.prefs.new_book_name.trim() {
+            "" => "Book".to_string(),
+            name => name.chars().filter(|c| !c.is_control() && !matches!(c, '/' | '\\')).take(60).collect(),
+        };
+        let n = (1..).find(|n| !self.docs.iter().any(|d| d.title == format!("{stem}{n}") && d.path.is_none())).unwrap_or(1);
         let mut wb = Workbook::new();
         for _ in 1..self.prefs.sheets_in_new_workbook.clamp(1, 255) {
             let name = wb.next_sheet_name();
             wb.sheets.push(Arc::new(gridcraft_model::Sheet::new(name)));
         }
-        self.add_document(DocState::new(wb, None, format!("Book{n}"), Trust::Local))
+        let paper = self.prefs.new_paper.trim();
+        if !paper.is_empty() && paper.len() <= 64 {
+            for sh in &mut wb.sheets {
+                Arc::make_mut(sh).print.paper = paper.to_string();
+            }
+        }
+        self.add_document(DocState::new(wb, None, format!("{stem}{n}"), Trust::Local))
     }
 
     /// Journals a command, then trims the oldest entries past either cap. A recording in progress

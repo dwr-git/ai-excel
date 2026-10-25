@@ -131,6 +131,10 @@ pub enum Icon {
     OpenFolder,
     Info,
     Print,
+    /// AI-Excel on the web: back to the site the editor lives on (a house with a door).
+    House,
+    /// AI-Excel: the AI assistant (a large four-pointed sparkle and a small one).
+    Sparkle,
 }
 
 struct G<'a> {
@@ -416,6 +420,19 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, c: Color32) {
             g.rect(2.5, 2.5, 11.0, 11.0, None, Some(c));
             g.rect(5.0, 2.5, 6.0, 4.0, None, Some(c));
             g.rect(4.5, 9.0, 7.0, 4.5, None, Some(c));
+        }
+        Icon::House => {
+            g.line(&[(1.5, 8.0), (8.0, 2.0), (14.5, 8.0)], c, 1.3);
+            g.line(&[(3.5, 6.5), (3.5, 14.0), (12.5, 14.0), (12.5, 6.5)], c, 1.3);
+            g.rect(6.6, 9.5, 2.8, 4.5, Some(c), None);
+        }
+        Icon::Sparkle => {
+            let star = |cx: f32, cy: f32, r: f32, k: f32| {
+                g.poly(&[(cx, cy - r), (cx + k, cy), (cx, cy + r), (cx - k, cy)], c);
+                g.poly(&[(cx - r, cy), (cx, cy - k), (cx + r, cy), (cx, cy + k)], c);
+            };
+            star(6.5, 9.0, 5.5, 1.4);
+            star(12.5, 3.8, 2.6, 0.8);
         }
         Icon::Home => {
             g.line(&[(2.0, 8.0), (8.0, 2.5), (14.0, 8.0)], c, 1.2);

@@ -104,10 +104,26 @@ fn run(app: &mut SheetApp, id: &str, params: Json) -> Result<Json, String> {
     r
 }
 
+/// The selection's last area on screen (window points), when the grid has been laid out.
+pub fn selection_rect(app: &SheetApp) -> Option<egui::Rect> {
+    let d = app.session.active()?;
+    let sh = d.wb.active()?;
+    let rect = app.grid.rect?;
+    let range = d.selection.ranges.last().copied()?;
+    let geo = crate::grid::Geo::new(sh, rect, app.view().scroll);
+    let r = geo.mirror_rect(geo.range_rect(sh, range)).intersect(geo.cells);
+    (r.is_finite() && r.is_positive()).then_some(r)
+}
+
 pub fn inspect(app: &SheetApp, ctx: &egui::Context) -> Json {
     let r = ctx.content_rect();
     let v = app.view();
+    let active = app.session.active();
     json!({
+        "title": active.map(|d| d.display_title()),
+        "dirty": active.is_some_and(|d| d.is_dirty()),
+        "theme": app.ui.theme_mode(),
+        "selectionRect": selection_rect(app).map(|s| json!({"x": s.left(), "y": s.top(), "w": s.width(), "h": s.height()})),
         "ui": serde_json::to_value(&app.ui).unwrap_or_default(),
         "window": [r.width(), r.height()],
         "grid": app.grid.cells_rect.map(|c| json!([c.left(), c.top(), c.width(), c.height()])),
@@ -258,6 +274,8 @@ pub fn handle(app: &mut SheetApp, ctx: &egui::Context, method: &str, p: &Json) -
         "engine.journal" => ok(json!(app.session.journal.iter().map(|(id, p)| json!({"command": id, "params": p})).collect::<Vec<_>>())),
         "document.inspect" | "sheet.read" | "cell.get" | "selection.stats" => wrap(app.session.run(method, p.clone())),
         "ui.inspect" => ok(inspect(app, ctx)),
+        // `{value: brand|light|dark|system}`: the display theme (the page's theme menu).
+        "ui.theme" => wrap(app.run("view.theme", json!({"mode": s("value").or(s("mode")).unwrap_or("")}))),
         "ui.ribbon" => {
             app.ui.ribbon_tab = s("tab").unwrap_or("Home").to_string();
             app.ui.ribbon_collapsed = false;
@@ -267,6 +285,7 @@ pub fn handle(app: &mut SheetApp, ctx: &egui::Context, method: &str, p: &Json) -
             if let Some(v) = p.get("dark").and_then(Json::as_bool) {
                 app.ui.dark = v;
                 app.ui.system_theme = false;
+                app.ui.brand = false;
             }
             if let Some(v) = p.get("formulaBar").and_then(Json::as_bool) {
                 let _ = app.run("view.formulaBar", json!({"on": v}));

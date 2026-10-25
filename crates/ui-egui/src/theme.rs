@@ -56,99 +56,170 @@ pub struct Tokens {
     pub notice_info_border: Color32,
 }
 
+/// Whether the Brand theme is the palette installed in egui's dark slot ([`apply`], [`set_brand`]).
+static BRAND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The Brand theme is showing (its palette is egui's dark one).
+pub fn brand_on() -> bool {
+    BRAND.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Switch egui's dark slot between the Brand and the Dark palette.
+pub fn set_brand(ctx: &egui::Context, on: bool) {
+    BRAND.store(on, std::sync::atomic::Ordering::Relaxed);
+    install_visuals(ctx);
+}
+
+/// The colour the Brand backdrop reads as: the area round the pages in Page Layout view.
+pub const BRAND_CANVAS: Color32 = Color32::from_rgb(0x16, 0x18, 0x2C);
+
 impl Tokens {
+    /// AI-Excel's light theme (NeuLight): soft blue-grey chrome and cards, a clear blue accent.
+    /// The cells stay white, as in a printed sheet.
     pub fn light() -> Tokens {
+        let c = |r, g, b| Color32::from_rgb(r, g, b);
         Tokens {
             dark: false,
-            window: Color32::from_rgb(0xF3, 0xF3, 0xF3),
-            ribbon: Color32::from_rgb(0xFF, 0xFF, 0xFF),
-            ribbon_border: Color32::from_rgb(0xE3, 0xE3, 0xE3),
-            text: Color32::from_rgb(0x24, 0x24, 0x24),
-            text_dim: Color32::from_rgb(0x61, 0x61, 0x61),
-            text_disabled: Color32::from_rgb(0xB0, 0xB0, 0xB0),
-            accent: Color32::from_rgb(0x10, 0x7C, 0x41),
-            accent_dark: Color32::from_rgb(0x0B, 0x5E, 0x31),
-            accent_soft: Color32::from_rgb(0xDF, 0xF1, 0xE6),
-            hover: Color32::from_rgb(0xEB, 0xEB, 0xEB),
-            pressed: Color32::from_rgb(0xDD, 0xDD, 0xDD),
-            separator: Color32::from_rgb(0xE0, 0xE0, 0xE0),
+            window: c(0xE4, 0xEC, 0xF6),
+            ribbon: c(0xE6, 0xEE, 0xF8),
+            ribbon_border: c(0xD0, 0xDB, 0xEA),
+            text: c(0x1E, 0x2C, 0x42),
+            text_dim: c(0x34, 0x44, 0x5E),
+            text_disabled: c(0x8D, 0x9A, 0xB0),
+            accent: c(0x34, 0x80, 0xE2),
+            accent_dark: c(0x16, 0x52, 0xA8),
+            accent_soft: c(0xD3, 0xE2, 0xF8),
+            hover: c(0xDC, 0xE6, 0xF3),
+            pressed: c(0xCC, 0xD9, 0xEB),
+            separator: c(0xD0, 0xDB, 0xEA),
             grid_bg: Color32::WHITE,
-            desk: Color32::from_rgb(0xDE, 0xDE, 0xDE),
-            gridline: Color32::from_rgb(0xE1, 0xE1, 0xE1),
-            header_bg: Color32::from_rgb(0xF8, 0xF8, 0xF8),
-            header_text: Color32::from_rgb(0x42, 0x42, 0x42),
-            header_line: Color32::from_rgb(0xD6, 0xD6, 0xD6),
-            header_sel_bg: Color32::from_rgb(0xE1, 0xE1, 0xE1),
-            header_sel_text: Color32::from_rgb(0x10, 0x7C, 0x41),
-            header_all_bg: Color32::from_rgb(0xC8, 0xE6, 0xD3),
-            sel_fill: Color32::from_rgba_unmultiplied(0x10, 0x7C, 0x41, 0x1C),
-            sel_border: Color32::from_rgb(0x10, 0x7C, 0x41),
-            input_bg: Color32::WHITE,
-            input_border: Color32::from_rgb(0xD1, 0xD1, 0xD1),
-            tab_bar: Color32::from_rgb(0xF3, 0xF3, 0xF3),
-            tab_active: Color32::WHITE,
-            status_bar: Color32::from_rgb(0xF3, 0xF3, 0xF3),
+            desk: c(0xD6, 0xE0, 0xED),
+            gridline: c(0xE1, 0xE1, 0xE1),
+            header_bg: c(0xEC, 0xF2, 0xFA),
+            header_text: c(0x4E, 0x5E, 0x78),
+            header_line: c(0xC8, 0xD5, 0xE6),
+            header_sel_bg: c(0xD3, 0xE2, 0xF8),
+            header_sel_text: c(0x16, 0x52, 0xA8),
+            header_all_bg: c(0xB9, 0xD0, 0xF0),
+            sel_fill: Color32::from_rgba_unmultiplied(0x34, 0x80, 0xE2, 0x1C),
+            sel_border: c(0x34, 0x80, 0xE2),
+            input_bg: c(0xDC, 0xE6, 0xF3),
+            input_border: c(0xB4, 0xC3, 0xD8),
+            tab_bar: c(0xE4, 0xEC, 0xF6),
+            tab_active: c(0xF4, 0xF7, 0xFC),
+            status_bar: c(0xE4, 0xEC, 0xF6),
             cell_text: Color32::BLACK,
-            menu_bg: Color32::WHITE,
-            shadow: Color32::from_black_alpha(40),
-            danger: Color32::from_rgb(0xC4, 0x2B, 0x1C),
-            error_check_green: Color32::from_rgb(0x1E, 0x8E, 0x3E),
-            warning_fill: Color32::from_rgb(0xF2, 0xB7, 0x05),
+            menu_bg: c(0xF4, 0xF7, 0xFC),
+            shadow: Color32::from_rgba_unmultiplied(0x46, 0x5A, 0x82, 0x40),
+            danger: c(0xC4, 0x2B, 0x1C),
+            error_check_green: c(0x1E, 0x8E, 0x3E),
+            warning_fill: c(0xF2, 0xB7, 0x05),
             warning_ink: Color32::BLACK,
-            notice_warn_bg: Color32::from_rgb(0xFF, 0xF4, 0xCE),
-            notice_warn_border: Color32::from_rgb(0xF0, 0xC3, 0x6E),
-            notice_info_bg: Color32::from_rgb(0xEA, 0xF2, 0xFB),
-            notice_info_border: Color32::from_rgb(0xB9, 0xD2, 0xEC),
+            notice_warn_bg: c(0xFF, 0xF4, 0xCE),
+            notice_warn_border: c(0xF0, 0xC3, 0x6E),
+            notice_info_bg: c(0xE6, 0xF0, 0xFC),
+            notice_info_border: c(0xB4, 0xCE, 0xEE),
         }
     }
 
+    /// AI-Excel's dark theme (NeuDark): slate chrome and cards, a light blue accent with dark text
+    /// on it. The cells stay white.
     pub fn dark() -> Tokens {
+        let c = |r, g, b| Color32::from_rgb(r, g, b);
         Tokens {
             dark: true,
-            window: Color32::from_rgb(0x29, 0x29, 0x29),
-            ribbon: Color32::from_rgb(0x33, 0x33, 0x33),
-            ribbon_border: Color32::from_rgb(0x40, 0x40, 0x40),
-            text: Color32::from_rgb(0xEE, 0xEE, 0xEE),
-            text_dim: Color32::from_rgb(0xB0, 0xB0, 0xB0),
-            text_disabled: Color32::from_rgb(0x70, 0x70, 0x70),
-            accent: Color32::from_rgb(0x5C, 0xC5, 0x87),
-            accent_dark: Color32::from_rgb(0x3F, 0xA8, 0x6C),
-            accent_soft: Color32::from_rgb(0x23, 0x45, 0x31),
-            hover: Color32::from_rgb(0x42, 0x42, 0x42),
-            pressed: Color32::from_rgb(0x4D, 0x4D, 0x4D),
-            separator: Color32::from_rgb(0x48, 0x48, 0x48),
+            window: c(0x26, 0x2D, 0x3A),
+            ribbon: c(0x28, 0x2F, 0x3D),
+            ribbon_border: c(0x36, 0x3F, 0x50),
+            text: c(0xE4, 0xEB, 0xF6),
+            text_dim: c(0xC4, 0xCF, 0xE0),
+            text_disabled: c(0x6E, 0x7A, 0x8E),
+            accent: c(0x5C, 0xA8, 0xFF),
+            accent_dark: c(0x8E, 0xC6, 0xFF),
+            accent_soft: c(0x2C, 0x44, 0x68),
+            hover: c(0x34, 0x3E, 0x50),
+            pressed: c(0x3E, 0x4A, 0x60),
+            separator: c(0x3A, 0x44, 0x56),
             grid_bg: Color32::WHITE,
-            desk: Color32::from_rgb(0x3A, 0x3A, 0x3A),
-            gridline: Color32::from_rgb(0xE1, 0xE1, 0xE1),
-            header_bg: Color32::from_rgb(0x30, 0x30, 0x30),
-            header_text: Color32::from_rgb(0xCC, 0xCC, 0xCC),
-            header_line: Color32::from_rgb(0x45, 0x45, 0x45),
-            header_sel_bg: Color32::from_rgb(0x45, 0x45, 0x45),
-            header_sel_text: Color32::from_rgb(0x5C, 0xC5, 0x87),
-            header_all_bg: Color32::from_rgb(0x2E, 0x55, 0x3E),
-            sel_fill: Color32::from_rgba_unmultiplied(0x10, 0x7C, 0x41, 0x24),
-            sel_border: Color32::from_rgb(0x10, 0x7C, 0x41),
-            input_bg: Color32::from_rgb(0x1F, 0x1F, 0x1F),
-            input_border: Color32::from_rgb(0x50, 0x50, 0x50),
-            tab_bar: Color32::from_rgb(0x29, 0x29, 0x29),
-            tab_active: Color32::from_rgb(0x3A, 0x3A, 0x3A),
-            status_bar: Color32::from_rgb(0x29, 0x29, 0x29),
+            desk: c(0x1B, 0x20, 0x2A),
+            gridline: c(0xE1, 0xE1, 0xE1),
+            header_bg: c(0x20, 0x26, 0x32),
+            header_text: c(0xA0, 0xAD, 0xC2),
+            header_line: c(0x36, 0x3F, 0x50),
+            header_sel_bg: c(0x2C, 0x44, 0x68),
+            header_sel_text: c(0x8E, 0xC6, 0xFF),
+            header_all_bg: c(0x22, 0x39, 0x5C),
+            sel_fill: Color32::from_rgba_unmultiplied(0x34, 0x80, 0xE2, 0x24),
+            sel_border: c(0x34, 0x80, 0xE2),
+            input_bg: c(0x20, 0x26, 0x32),
+            input_border: c(0x4A, 0x56, 0x6C),
+            tab_bar: c(0x26, 0x2D, 0x3A),
+            tab_active: c(0x34, 0x3E, 0x50),
+            status_bar: c(0x26, 0x2D, 0x3A),
             cell_text: Color32::BLACK,
-            menu_bg: Color32::from_rgb(0x30, 0x30, 0x30),
-            shadow: Color32::from_black_alpha(90),
-            danger: Color32::from_rgb(0xF1, 0x70, 0x5F),
-            error_check_green: Color32::from_rgb(0x4C, 0xC2, 0x6B),
-            warning_fill: Color32::from_rgb(0xF2, 0xB7, 0x05),
+            menu_bg: c(0x2B, 0x33, 0x42),
+            shadow: Color32::from_black_alpha(110),
+            danger: c(0xEE, 0x6A, 0x6A),
+            error_check_green: c(0x5B, 0xC0, 0x8A),
+            warning_fill: c(0xF2, 0xB7, 0x05),
             warning_ink: Color32::BLACK,
-            notice_warn_bg: Color32::from_rgb(0x4A, 0x3F, 0x1E),
-            notice_warn_border: Color32::from_rgb(0x7A, 0x67, 0x30),
-            notice_info_bg: Color32::from_rgb(0x24, 0x33, 0x44),
-            notice_info_border: Color32::from_rgb(0x3B, 0x55, 0x72),
+            notice_warn_bg: c(0x4A, 0x3F, 0x1E),
+            notice_warn_border: c(0x7A, 0x67, 0x30),
+            notice_info_bg: c(0x22, 0x33, 0x4A),
+            notice_info_border: c(0x3B, 0x55, 0x72),
+        }
+    }
+
+    /// The Brand theme: the brand gradient's navy (#0a0a0f → #1a1a2e → #16213e) for the chrome,
+    /// the brand's blue-violet (#667eea) for the accent, solid black menus; the cells stay white.
+    pub fn brand() -> Tokens {
+        let c = |r, g, b| Color32::from_rgb(r, g, b);
+        Tokens {
+            dark: true,
+            window: c(0x0C, 0x0D, 0x17),
+            ribbon: c(0x14, 0x15, 0x26),
+            ribbon_border: c(0x2A, 0x2D, 0x46),
+            text: Color32::WHITE,
+            text_dim: c(0xB7, 0xBB, 0xD8),
+            text_disabled: c(0x6B, 0x6F, 0x8F),
+            accent: c(0x66, 0x7E, 0xEA),
+            accent_dark: c(0xA9, 0xB4, 0xFF),
+            accent_soft: c(0x2A, 0x30, 0x66),
+            hover: c(0x22, 0x25, 0x3E),
+            pressed: c(0x2D, 0x31, 0x52),
+            separator: c(0x2A, 0x2D, 0x46),
+            grid_bg: Color32::WHITE,
+            desk: BRAND_CANVAS,
+            gridline: c(0xE1, 0xE1, 0xE1),
+            header_bg: c(0x16, 0x18, 0x2A),
+            header_text: c(0xC9, 0xCD, 0xE8),
+            header_line: c(0x2A, 0x2D, 0x46),
+            header_sel_bg: c(0x2D, 0x31, 0x52),
+            header_sel_text: c(0xA9, 0xB4, 0xFF),
+            header_all_bg: c(0x2A, 0x30, 0x66),
+            sel_fill: Color32::from_rgba_unmultiplied(0x66, 0x7E, 0xEA, 0x2C),
+            sel_border: c(0x54, 0x68, 0xD4),
+            input_bg: c(0x1F, 0x22, 0x38),
+            input_border: c(0x4A, 0x4F, 0x75),
+            tab_bar: c(0x0C, 0x0D, 0x17),
+            tab_active: c(0x22, 0x25, 0x3E),
+            status_bar: c(0x0C, 0x0D, 0x17),
+            cell_text: Color32::BLACK,
+            menu_bg: Color32::BLACK,
+            shadow: Color32::BLACK,
+            danger: c(0xF1, 0x70, 0x5F),
+            error_check_green: c(0x4C, 0xC2, 0x6B),
+            warning_fill: c(0xF2, 0xB7, 0x05),
+            warning_ink: Color32::BLACK,
+            notice_warn_bg: c(0x3A, 0x31, 0x18),
+            notice_warn_border: c(0x7A, 0x67, 0x30),
+            notice_info_bg: c(0x1B, 0x1E, 0x3A),
+            notice_info_border: c(0x3A, 0x3E, 0x5E),
         }
     }
 
     pub fn get(ctx: &egui::Context) -> Tokens {
-        if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() }
+        if ctx.global_style().visuals.dark_mode { if brand_on() { Tokens::brand() } else { Tokens::dark() } } else { Tokens::light() }
     }
 }
 
@@ -802,28 +873,7 @@ pub fn symbol_face_installed() -> bool {
 }
 
 pub fn apply(ctx: &egui::Context, dark: bool) {
-    // Install both palettes before System can switch between the style slots.
-    for theme in [egui::Theme::Light, egui::Theme::Dark] {
-        let dark = theme == egui::Theme::Dark;
-        let t = if dark { Tokens::dark() } else { Tokens::light() };
-        let mut v = if dark { Visuals::dark() } else { Visuals::light() };
-        v.panel_fill = t.window;
-        v.window_fill = t.menu_bg;
-        v.extreme_bg_color = t.input_bg;
-        v.selection.bg_fill = t.accent_soft;
-        v.selection.stroke = Stroke::new(1.0, t.accent);
-        v.hyperlink_color = t.accent;
-        v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, t.text);
-        v.widgets.inactive.fg_stroke = Stroke::new(1.0, t.text);
-        v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
-        v.widgets.hovered.weak_bg_fill = t.hover;
-        v.widgets.active.weak_bg_fill = t.pressed;
-        v.widgets.inactive.bg_stroke = Stroke::new(1.0, t.input_border);
-        v.window_corner_radius = egui::CornerRadius::same(10);
-        v.menu_corner_radius = egui::CornerRadius::same(8);
-        v.popup_shadow = egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: t.shadow };
-        ctx.set_visuals_of(theme, v);
-    }
+    install_visuals(ctx);
     ctx.options_mut(|o| o.fallback_theme = egui::Theme::Light);
     ctx.set_theme(if dark { egui::Theme::Dark } else { egui::Theme::Light });
     ctx.all_styles_mut(|s| {
@@ -836,6 +886,159 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
         s.text_styles.insert(egui::TextStyle::Heading, ui_bold(18.0));
         s.text_styles.insert(egui::TextStyle::Monospace, FontId::new(12.0, FontFamily::Name(MONO.into())));
     });
+}
+
+/// Install both palettes (the dark slot holds Brand while it is on) before System can switch
+/// between the style slots.
+fn install_visuals(ctx: &egui::Context) {
+    for theme in [egui::Theme::Light, egui::Theme::Dark] {
+        let dark = theme == egui::Theme::Dark;
+        let t = if !dark {
+            Tokens::light()
+        } else if brand_on() {
+            Tokens::brand()
+        } else {
+            Tokens::dark()
+        };
+        let mut v = if dark { Visuals::dark() } else { Visuals::light() };
+        v.panel_fill = t.window;
+        v.window_fill = t.menu_bg;
+        v.extreme_bg_color = t.input_bg;
+        v.faint_bg_color = t.ribbon;
+        v.selection.bg_fill = t.accent_soft;
+        v.selection.stroke = Stroke::new(1.0, t.accent);
+        v.hyperlink_color = t.accent;
+        v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, t.text);
+        v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, t.separator);
+        v.widgets.inactive.fg_stroke = Stroke::new(1.0, t.text);
+        v.widgets.inactive.bg_fill = t.input_bg;
+        v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+        v.widgets.hovered.weak_bg_fill = t.hover;
+        v.widgets.hovered.bg_fill = t.hover;
+        v.widgets.active.weak_bg_fill = t.pressed;
+        v.widgets.active.bg_fill = t.pressed;
+        v.widgets.open.weak_bg_fill = t.pressed;
+        v.widgets.inactive.bg_stroke = Stroke::new(1.0, t.input_border);
+        v.window_corner_radius = egui::CornerRadius::same(10);
+        v.menu_corner_radius = egui::CornerRadius::same(8);
+        v.popup_shadow = egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: t.shadow };
+        v.window_shadow = egui::epaint::Shadow { offset: [0, 8], blur: 28, spread: 0, color: t.shadow };
+        if dark && brand_on() {
+            // Brand: menus, popups and windows are solid black blocks with a strong black shadow.
+            v.window_fill = Color32::BLACK;
+            v.window_stroke = Stroke::new(1.0, Color32::from_rgb(0x26, 0x28, 0x3C));
+            v.popup_shadow = egui::epaint::Shadow { offset: [0, 8], blur: 32, spread: 0, color: Color32::BLACK };
+            v.window_shadow = egui::epaint::Shadow { offset: [0, 10], blur: 36, spread: 2, color: Color32::BLACK };
+        }
+        ctx.set_visuals_of(theme, v);
+    }
+}
+
+/// The Brand theme's backdrop, as the owner's page draws it in CSS: the brand gradient
+/// (#0a0a0f → #1a1a2e → #16213e at 135°), three soft glows, a 30 px grid of 5% white lines and an
+/// inner shadow round the edges.
+pub fn paint_brand_backdrop(painter: &egui::Painter, rect: egui::Rect) {
+    use egui::epaint::{Mesh, Vertex, WHITE_UV};
+    if !rect.is_finite() || !rect.is_positive() {
+        return;
+    }
+    let vertex = |pos: egui::Pos2, color: Color32| Vertex { pos, uv: WHITE_UV, color };
+    let quad = |m: &mut Mesh, corners: [(egui::Pos2, Color32); 4]| {
+        let base = m.vertices.len() as u32;
+        m.vertices.extend(corners.iter().map(|(p, c)| vertex(*p, *c)));
+        m.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    };
+    let (a, mid, b) = (Color32::from_rgb(0x0A, 0x0A, 0x0F), Color32::from_rgb(0x1A, 0x1A, 0x2E), Color32::from_rgb(0x16, 0x21, 0x3E));
+    let mut m = Mesh::default();
+    quad(&mut m, [(rect.left_top(), a), (rect.right_top(), mid), (rect.right_bottom(), b), (rect.left_bottom(), mid)]);
+    painter.add(egui::Shape::mesh(m));
+    for (fx, fy, rgb, alpha) in [(0.2_f32, 0.8_f32, (120, 119, 198), 0.30_f32), (0.8, 0.2, (255, 119, 198), 0.30), (0.4, 0.4, (120, 219, 255), 0.20)]
+    {
+        let c = rect.min + egui::vec2(rect.width() * fx, rect.height() * fy);
+        let far = egui::vec2(rect.width() * fx.max(1.0 - fx), rect.height() * fy.max(1.0 - fy)).length();
+        let reach = far * 0.5;
+        let inner = Color32::from_rgba_unmultiplied(rgb.0, rgb.1, rgb.2, (alpha * 255.0) as u8);
+        let mut g = Mesh::default();
+        g.vertices.push(vertex(c, inner));
+        const STEPS: u32 = 64;
+        for i in 0..=STEPS {
+            let angle = std::f32::consts::TAU * i as f32 / STEPS as f32;
+            g.vertices.push(vertex(c + egui::vec2(angle.cos(), angle.sin()) * reach, Color32::TRANSPARENT));
+        }
+        for i in 1..=STEPS {
+            g.indices.extend([0, i, i + 1]);
+        }
+        painter.add(egui::Shape::mesh(g));
+    }
+    // The grid: lines 30 points apart (bounded: a huge rect still draws a bounded number).
+    let line = Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 13));
+    let mut x = rect.left() + 0.5;
+    for _ in 0..400 {
+        if x >= rect.right() {
+            break;
+        }
+        painter.vline(x, rect.y_range(), line);
+        x += 30.0;
+    }
+    let mut y = rect.top() + 0.5;
+    for _ in 0..400 {
+        if y >= rect.bottom() {
+            break;
+        }
+        painter.hline(rect.x_range(), y, line);
+        y += 30.0;
+    }
+    let dark = |a: f32| Color32::from_rgba_unmultiplied(0, 0, 0, (a * 153.0) as u8);
+    let mut sh = Mesh::default();
+    for (i0, i1, a0, a1) in [(0.0_f32, 10.0_f32, 1.0_f32, 0.75_f32), (10.0, 45.0, 0.75, 0.0)] {
+        let r = rect;
+        quad(
+            &mut sh,
+            [
+                (egui::pos2(r.left(), r.top() + i0), dark(a0)),
+                (egui::pos2(r.right(), r.top() + i0), dark(a0)),
+                (egui::pos2(r.right(), r.top() + i1), dark(a1)),
+                (egui::pos2(r.left(), r.top() + i1), dark(a1)),
+            ],
+        );
+        quad(
+            &mut sh,
+            [
+                (egui::pos2(r.left(), r.bottom() - i1), dark(a1)),
+                (egui::pos2(r.right(), r.bottom() - i1), dark(a1)),
+                (egui::pos2(r.right(), r.bottom() - i0), dark(a0)),
+                (egui::pos2(r.left(), r.bottom() - i0), dark(a0)),
+            ],
+        );
+        quad(
+            &mut sh,
+            [
+                (egui::pos2(r.left() + i0, r.top()), dark(a0)),
+                (egui::pos2(r.left() + i1, r.top()), dark(a1)),
+                (egui::pos2(r.left() + i1, r.bottom()), dark(a1)),
+                (egui::pos2(r.left() + i0, r.bottom()), dark(a0)),
+            ],
+        );
+        quad(
+            &mut sh,
+            [
+                (egui::pos2(r.right() - i1, r.top()), dark(a1)),
+                (egui::pos2(r.right() - i0, r.top()), dark(a0)),
+                (egui::pos2(r.right() - i0, r.bottom()), dark(a0)),
+                (egui::pos2(r.right() - i1, r.bottom()), dark(a1)),
+            ],
+        );
+    }
+    painter.add(egui::Shape::mesh(sh));
+}
+
+/// The area round the pages: the brand backdrop in the Brand theme, else `fill`.
+pub fn paint_desk(painter: &egui::Painter, rect: egui::Rect, fill: Color32) {
+    if fill == BRAND_CANVAS {
+        paint_brand_backdrop(painter, rect);
+    } else {
+        painter.rect_filled(rect, 0.0, fill);
+    }
 }
 
 /// Model colour → egui colour.
