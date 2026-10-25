@@ -30,7 +30,7 @@ jobs:
       TRUNK_VERSION: 0.21.14
       AI_EXCEL_BUILD: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Rust для WebAssembly
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
@@ -62,7 +62,7 @@ jobs:
         run: studio/build/package.sh
 
       - name: Сохранить zip в Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ai-excel
           path: dist/release/ai-excel-build-*.zip
