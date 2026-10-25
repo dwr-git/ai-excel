@@ -1,0 +1,92 @@
+# Сборка AI-Excel: готовая папка для сервера (zip).
+#
+# Запускается на каждое изменение ветки main и вручную (Actions → «Сборка» → Run workflow).
+# Результат:
+#   - Releases → «Сборка N — дата» (отдельный выпуск на каждую сборку, свежая отмечена Latest):
+#     ai-excel-build-N-ГГГГ-ММ-ДД.zip; что нового — из studio/CHANGES.ru.md
+#   - Actions → запуск → Artifacts: тот же zip
+# Rust, trunk и всё остальное ставятся только здесь, на машине GitHub. На ваш сервер
+# попадают готовые файлы: index.html, js, сжатый wasm, панель и PHP помощника.
+name: Сборка
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: studio-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: AI-Excel (браузер)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      TRUNK_VERSION: 0.21.14
+      AI_EXCEL_BUILD: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust для WebAssembly
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Кэш сборки
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: studio-web
+          cache-on-failure: true
+
+      - name: Установить trunk
+        run: |
+          curl --proto '=https' -fsSL "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C "$HOME/.cargo/bin" trunk
+          trunk --version
+
+      - name: Проверить PHP помощника
+        run: for f in studio/api/*.php; do php -l "$f"; done
+
+      - name: Проверить JavaScript панели
+        run: for f in studio/web/*.js; do node --check "$f"; done
+
+      - name: Проверить загрузчик частями
+        run: cargo test -p gridcraft-web-boot
+
+      - name: Собрать сайт
+        run: studio/build/package.sh
+
+      - name: Сохранить zip в Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-excel
+          path: dist/release/ai-excel-build-*.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Выложить в Releases (отдельная сборка с номером)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ZIP=$(ls dist/release/ai-excel-build-*.zip)
+          DATE=$(TZ=Europe/Minsk date +%d.%m.%Y)
+          # Что нового: верхний раздел studio/CHANGES.ru.md (от первого «## » до следующего).
+          awk '/^## /{n++} n==1' studio/CHANGES.ru.md > notes.md
+          {
+            echo
+            echo "---"
+            echo "Скачайте zip ниже, распакуйте и положите папку ai-excel на сервер вместо старой (имя папки можно менять)."
+            echo "Номер установленной сборки виден в шапке панели помощника. Инструкция: studio/README.ru.md"
+          } >> notes.md
+          # Повторный запуск той же сборки заменяет её выпуск.
+          gh release delete "build-${AI_EXCEL_BUILD}" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "build-${AI_EXCEL_BUILD}" "$ZIP" \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --title "Сборка ${AI_EXCEL_BUILD} — ${DATE}" \
+            --notes-file notes.md

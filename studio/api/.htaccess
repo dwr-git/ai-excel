@@ -1,0 +1,4 @@
+# Apache: снаружи доступен только сам помощник; settings.php и tools.php — внутренние.
+<FilesMatch "^(settings|tools)\.php$">
+  Require all denied
+</FilesMatch>

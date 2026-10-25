@@ -41,6 +41,8 @@ sha2 = { version = "0.11", default-features = false }
 aes = { version = "0.9", default-features = false }
 sha1 = { version = "0.11", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# The browser boot module (apps/gridcraft-web-boot, AI-Excel) inflates the app's parts where the browser can't.
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 
 # ui
 egui = "0.36"
@@ -79,3 +81,13 @@ opt-level = 3
 lto = "thin"
 codegen-units = 16
 debug = 0
+
+# The browser build (apps/gridcraft-web, AI-Excel): small and fast to download.
+[profile.web-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+debug = false
+strip = true
+panic = "abort"

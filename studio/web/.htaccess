@@ -1,0 +1,5 @@
+# Apache: файлы панели меняются при обновлении, а config.js правится на сервере —
+# браузер должен проверять их каждый раз (на nginx то же делает nginx.conf.example).
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-cache"
+</IfModule>
