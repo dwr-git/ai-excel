@@ -822,6 +822,7 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
     fill_options_tag(app, ui, &geo, sh);
     object_menu(app, ui);
     error_check_tag(app, ui, &geo, sh);
+    ai_chip(app, ui, &geo, sh);
     let track_x = if rtl { (available.left(), rect.left()) } else { (rect.right(), available.right()) };
     // The track starts below the column headings and frozen rows; the bar's column beside them
     // takes its colour too instead of showing a light square in dark mode.
@@ -2410,7 +2411,7 @@ fn interact(app: &mut SheetApp, ui: &mut egui::Ui, resp: &egui::Response, geo: &
                     Ok(_) => return,
                     Err(e) if e == not_a_value_cell => {}
                     Err(e) => {
-                        app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                        app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
                         return;
                     }
                 }
@@ -2606,7 +2607,7 @@ fn interact(app: &mut SheetApp, ui: &mut egui::Ui, resp: &egui::Response, geo: &
                     let mode = if mods.command { "alternate" } else { "series" };
                     match app.run("edit.autoFill", json!({"source": src.a1(), "target": t.a1(), "mode": mode})) {
                         Ok(_) => set_fill_tag(app, src, t),
-                        Err(e) => app.message = Some(("GridCraft".into(), crate::clean_error(&e))),
+                        Err(e) => app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e))),
                     }
                 }
             }
@@ -2627,7 +2628,7 @@ fn interact(app: &mut SheetApp, ui: &mut egui::Ui, resp: &egui::Response, geo: &
             }
             Drag::MoveCols { source, before: Some(before) } => {
                 if let Err(e) = app.run("sheet.moveColumns", json!({"cols": source.a1(), "before": before})) {
-                    app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                    app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
                 }
             }
             _ => {}
@@ -2679,7 +2680,7 @@ fn format_painter_apply(app: &mut SheetApp) {
         if let Some(dest) = dest
             && let Err(e) = app.run("edit.formatPainter", json!({"apply": dest}))
         {
-            app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+            app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
         }
     }
 }
@@ -3327,6 +3328,22 @@ fn context_menu(app: &mut SheetApp, ui: &mut egui::Ui) {
     let resp = egui::Area::new(egui::Id::new("cell_context")).fixed_pos(at).order(egui::Order::Foreground).show(ui.ctx(), |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             ui.set_min_width(200.0);
+            // AI-Excel on the web: the AI menu for the selected cells, first in the menu.
+            if app.services.ai_assist.is_some() {
+                let lang = crate::i18n::current(ui.ctx());
+                let label = egui::RichText::new(lang.tr("AI Assistant…")).strong();
+                if ui
+                    .add(egui::Button::new(label).frame_when_inactive(false).min_size(vec2(190.0, 20.0)))
+                    .on_hover_text(lang.tr("AI Assistant: formulas, cleanup, translation, summaries, charts"))
+                    .clicked()
+                {
+                    close = true;
+                    if let Some(open) = app.services.ai_assist.as_ref() {
+                        open(at.x, at.y);
+                    }
+                }
+                ui.separator();
+            }
             let insert_copied = insert_copied_item(app);
             let mut items: Vec<(&str, &str)> = vec![
                 ("Cut", "edit.cut"),
@@ -3476,14 +3493,14 @@ fn fill_options_tag(app: &mut SheetApp, ui: &mut egui::Ui, geo: &Geo, sh: &Sheet
     if let Some(mode) = chosen {
         if let Err(e) = app.run("edit.undo", json!({})) {
             app.grid.fill_tag = None;
-            app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+            app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
             return;
         }
         match app.run("edit.autoFill", json!({"source": tag.src.a1(), "target": tag.target.a1(), "mode": mode})) {
             Ok(_) => set_fill_tag(app, tag.src, tag.target),
             Err(e) => {
                 app.grid.fill_tag = None;
-                app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
             }
         }
     }
@@ -3510,7 +3527,7 @@ fn fill_menu(app: &mut SheetApp, ui: &mut egui::Ui, was_open: bool) {
                         let direction = if target.width() != src.width() { "rows" } else { "columns" };
                         app.open_dialog("series", json!({"direction": direction}));
                     } else if let Err(e) = app.run("edit.autoFill", json!({"source": src.a1(), "target": target.a1(), "mode": mode})) {
-                        app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                        app.message = Some((crate::PRODUCT.into(), crate::clean_error(&e)));
                     }
                 }
             }
@@ -3605,6 +3622,67 @@ fn error_check_tag(app: &mut SheetApp, ui: &mut egui::Ui, geo: &Geo, sh: &Sheet)
             ui.close();
         }
     });
+}
+
+/// Width and height of the AI chip by the selection (AI-Excel on the web).
+const AI_CHIP: egui::Vec2 = egui::Vec2::new(46.0, 20.0);
+
+/// Where the AI chip sits: just outside the selection's bottom-right corner (below the Auto Fill
+/// Options button when that one shows), kept inside the cells area; left of the corner when there
+/// is no room on the right. `None` when the corner is off screen. Pure geometry.
+pub fn ai_chip_rect(selection: Rect, cells: Rect, fill_tag: bool) -> Option<Rect> {
+    if !selection.is_finite() || !cells.is_finite() || !cells.contains(selection.right_bottom() - vec2(1.0, 1.0)) {
+        return None;
+    }
+    let below = if fill_tag { 24.0 } else { 4.0 };
+    let mut chip = Rect::from_min_size(selection.right_bottom() + vec2(4.0, below), AI_CHIP);
+    if chip.right() > cells.right() {
+        chip = chip.translate(vec2(-(AI_CHIP.x + 8.0), 0.0));
+    }
+    if chip.bottom() > cells.bottom() {
+        chip = chip.translate(vec2(0.0, -(AI_CHIP.y + below + 8.0)));
+    }
+    cells.contains_rect(chip).then_some(chip)
+}
+
+/// The AI chip: opens the page's AI menu for the selected cells, just below the chip. Shown for a
+/// selection of more than one cell, or a cell with something in it, while nothing else is going on.
+fn ai_chip(app: &mut SheetApp, ui: &mut egui::Ui, geo: &Geo, sh: &Sheet) {
+    if app.services.ai_assist.is_none()
+        || app.editor.is_some()
+        || app.dialog.is_some()
+        || app.grid.drag != Drag::None
+        || app.grid.context_menu.is_some()
+    {
+        return;
+    }
+    let Some(d) = app.session.active() else { return };
+    let Some(range) = d.selection.ranges.last().copied() else { return };
+    if range.count() <= 1 && sh.cell(d.selection.active).is_none() {
+        return;
+    }
+    let selection = geo.mirror_rect(geo.range_rect(sh, range));
+    let cells = geo.mirror_rect(geo.cells);
+    let Some(chip) = ai_chip_rect(selection, cells, app.grid.fill_tag.is_some()) else { return };
+    let lang = crate::i18n::current(ui.ctx());
+    let resp = ui
+        .interact(chip, egui::Id::new("aiexcel.ai_chip"), Sense::click())
+        .on_hover_text(lang.tr("AI Assistant: formulas, cleanup, translation, summaries, charts"))
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, lang.tr("AI Assistant")));
+    let t = Tokens::get(ui.ctx());
+    let p = ui.painter();
+    let radius = AI_CHIP.y / 2.0;
+    p.rect_filled(chip.translate(vec2(0.0, 1.5)), radius, Color32::from_black_alpha(60));
+    p.rect_filled(chip, radius, if resp.hovered() { t.accent_dark } else { t.accent });
+    let ink = if t.dark { Color32::from_rgb(0x0B, 0x0D, 0x1F) } else { Color32::WHITE };
+    crate::icons::paint(p, Rect::from_center_size(pos2(chip.left() + 13.0, chip.center().y), vec2(12.0, 12.0)), crate::icons::Icon::Sparkle, ink);
+    p.text(pos2(chip.left() + 22.0, chip.center().y), egui::Align2::LEFT_CENTER, lang.tr("AI"), crate::theme::ui_bold(11.5), ink);
+    if resp.clicked()
+        && let Some(open) = app.services.ai_assist.as_ref()
+    {
+        open(chip.left(), chip.bottom() + 6.0);
+    }
 }
 
 /// Used by `EditState` users to keep the active cell visible while pointing.
