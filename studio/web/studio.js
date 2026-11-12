@@ -16,7 +16,7 @@
     homeUrl: '../',
     labels: 'studio/ru-labels.json',
     autosaveSeconds: 60,       // автосохранение на сервер книги, которая там уже лежит (0 — выключить)
-    maxSteps: 14,              // сколько шагов подряд помощник может сделать за один запрос
+    maxSteps: 40,              // шагов подряд в «Сделай» по умолчанию (в панели: шестерёнка → 10…без ограничений)
     screenshotMax: 1280,       // длинная сторона снимка экрана для модели, px
     aiMaxCells: 2000,          // сколько ячеек выделения отправлять модели («ИИ у выделения»)
     openOnStart: false,
@@ -252,6 +252,7 @@
 
   // ------------------------------------------------------------------ интерфейс
   const ICON = {
+    gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
     spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
     bulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>',
     hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M12.5 5.5l6 6"/></svg>',
@@ -305,7 +306,7 @@
           <textarea data-ref="input" rows="1" placeholder="Спросите или попросите…" aria-label="Сообщение помощнику"></textarea>
           <button class="st-send" data-ref="send" title="Отправить (Enter)" aria-label="Отправить">${ICON.send}</button>
         </div>
-        <div class="st-foot"><span>Ctrl+Z — отменить · Ctrl+Shift+Пробел — строка</span><button data-ref="clear">Новый разговор</button></div>
+        <div class="st-foot"><span>Ctrl+Z — отменить</span><span class="st-agent-wrap"><button data-ref="agentBtn" title="Сколько шагов подряд делать и спрашивать ли перед удалением" aria-haspopup="menu" aria-expanded="false">${ICON.gear}Настройки</button><span class="st-theme-menu st-agent-menu" data-ref="agentMenu" role="menu" hidden></span></span><button data-ref="clear">Новый разговор</button></div>
       </div>
     </aside>
     <div class="st-files" data-ref="files" role="dialog" aria-modal="true" aria-label="Мои книги" hidden>
@@ -482,14 +483,68 @@
       d.appendChild(b);
     }
   }
+  // ------------------------------------------------------------------ настройки помощника
+  // Сколько шагов подряд делать в «Сделай» (потом — кнопка «Продолжить») и спрашивать ли перед
+  // удалением, закрытием, сбросом. Хранятся в этом браузере; меню — «Настройки» внизу панели.
+  const STEP_CHOICES = [10, 25, 40, 100, 0]; // 0 — без ограничений
+  const stepSetting = () => { const v = Number(store.get('agentSteps', CFG.maxSteps)); return Number.isFinite(v) && v >= 0 ? v : CFG.maxSteps; };
+  const agentSteps = () => (stepSetting() > 0 ? stepSetting() : Infinity);
+  const askBeforeRisky = () => store.get('agentConfirm', true) !== false;
+  function renderAgentMenu() {
+    const menu = $('agentMenu');
+    if (!menu) return;
+    const cur = stepSetting();
+    menu.innerHTML = '<div class="st-menu-title">Шагов подряд в «Сделай»</div>'
+      + STEP_CHOICES.map((n) => `<button role="menuitemradio" aria-checked="${n === cur}" data-steps="${n}">${n ? n : 'Без ограничений'}</button>`).join('')
+      + '<hr><label class="st-menu-check"><input type="checkbox" data-k="agentConfirm"' + (askBeforeRisky() ? ' checked' : '') + '><span>Спрашивать перед удалением, закрытием и сбросом</span></label>'
+      + '<label class="st-menu-check"><input type="checkbox" data-k="agentLook"' + (store.get('agentLook', true) ? ' checked' : '') + '><span>Смотреть на результат после каждой серии шагов (если включён «глаз»)</span></label>';
+    menu.querySelectorAll('[data-steps]').forEach((b) => { b.onclick = () => { store.set('agentSteps', Number(b.dataset.steps)); renderAgentMenu(); }; });
+    menu.querySelectorAll('input[data-k]').forEach((c) => { c.onchange = () => store.set(c.dataset.k, c.checked); });
+  }
+  function toggleAgentMenu(open) {
+    const menu = $('agentMenu');
+    if (!menu) return;
+    const show = open == null ? menu.hidden : open;
+    if (show) renderAgentMenu();
+    menu.hidden = !show;
+    $('agentBtn').setAttribute('aria-expanded', String(show));
+  }
+  function initAgentMenu() {
+    const btn = $('agentBtn');
+    if (!btn) return;
+    btn.onclick = (e) => { e.stopPropagation(); toggleAgentMenu(); };
+    document.addEventListener('pointerdown', (e) => {
+      const menu = $('agentMenu');
+      if (menu && !menu.hidden && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) toggleAgentMenu(false);
+    }, true);
+  }
+  let allowAllThisTurn = false;
+  let autoAllowNoted = false;
   function confirmAction(text) {
+    if (!askBeforeRisky() || allowAllThisTurn) {
+      if (!autoAllowNoted) {
+        autoAllowNoted = true;
+        msg('note', 'Необратимые действия выполняю без вопроса — так выбрано. Вернуть вопросы: «Настройки» внизу панели. Отменить шаг — Ctrl+Z.');
+      }
+      return Promise.resolve(true);
+    }
     return new Promise((resolve) => {
       const d = document.createElement('div');
       d.className = 'st-confirm st-raised';
-      d.innerHTML = `<p>${esc(text)}</p><div class="st-row"><button class="st-mini danger" data-a="no">Не надо</button><button class="st-mini" data-a="yes">Разрешить</button></div>`;
+      d.innerHTML = `<p>${esc(text)}</p>`
+        + '<label class="st-confirm-check"><input type="checkbox"> Больше не спрашивать (вернуть — «Настройки» внизу панели)</label>'
+        + '<div class="st-row"><button class="st-mini danger" data-a="no">Не надо</button>'
+        + '<button class="st-mini" data-a="all" title="Не спрашивать до конца этой просьбы">Разрешать всё в этой задаче</button>'
+        + '<button class="st-mini" data-a="yes">Разрешить</button></div>';
       add(d);
       d.querySelectorAll('button').forEach((b) => {
-        b.onclick = () => { d.remove(); resolve(b.dataset.a === 'yes'); };
+        b.onclick = () => {
+          const yes = b.dataset.a !== 'no';
+          if (yes && d.querySelector('input').checked) store.set('agentConfirm', false);
+          if (b.dataset.a === 'all') allowAllThisTurn = true;
+          d.remove();
+          resolve(yes);
+        };
       });
     });
   }
@@ -631,13 +686,77 @@
   }
 
   // ------------------------------------------------------------------ разговор с моделью
+  // Память разговора. У модели ограниченный контекст (CTX токенов, сервер сообщает его при запуске);
+  // если история не влезает, сервер модели молча отрезает её начало — вместе с задачей, и помощник
+  // начинает ходить по кругу. Поэтому прошлые просьбы уходят сжато (просьба и итог, без шагов и
+  // снимков), текущая — целиком; если и она не влезает, сначала сокращаются старые результаты шагов,
+  // потом выпадают самые ранние шаги, но сама просьба остаётся всегда.
+  let CTX = 32768;
+  let turnStart = 0;
+  const AUTO_STATE = /\n\n\[Состояние [^\]]*— автоматически\][\s\S]*$/;
+  const AUTO_MSG = /^\[(Снимок экрана|Состояние)[^\]]*автоматически\]/;
+  const plainText = (t) => String(t || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<?function=[\w.-]+>[\s\S]*?(<\/function>|$)/g, '').replace(/<\/?tool_call>/g, '').trim();
+  const sizeOf = (m) => String(m.content || '').length + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0) + (m.images ? m.images.length * 3500 : 0);
   function outgoing() {
-    // Картинки тяжёлые и занимают много контекста: отправляем только последний снимок.
-    const out = convo.slice(-60).map((m) => ({ ...m }));
+    const start = Math.min(Math.max(0, turnStart), convo.length);
+    const older = [];
+    for (const m of convo.slice(0, start)) {
+      if (m.role === 'tool') continue;
+      if (m.role === 'user') {
+        if (AUTO_MSG.test(String(m.content || ''))) continue;
+        older.push({ role: 'user', content: clip(String(m.content || '').replace(AUTO_STATE, ''), 1500) });
+      } else if (m.role === 'assistant') {
+        const text = plainText(m.content);
+        const names = [...new Set((m.tool_calls || []).map((c) => c.function && c.function.name).filter(Boolean))];
+        const line = text ? clip(text, 1200) : (names.length ? '[Выполнено: ' + names.join(', ') + ']' : '');
+        if (!line) continue;
+        const last = older[older.length - 1];
+        if (last && last.role === 'assistant') last.content = clip(last.content + '\n' + line, 2400);
+        else older.push({ role: 'assistant', content: line });
+      }
+    }
+    const recent = older.slice(-16);
+    while (recent.length && recent[0].role !== 'user') recent.shift();
+    const out = recent.concat(convo.slice(start).map((m) => ({ ...m })));
+    // Только последний снимок экрана: картинки тяжёлые.
     let images = 0;
     for (let i = out.length - 1; i >= 0; i--) {
       if (!out[i].images) continue;
       if (images >= 1) delete out[i].images; else images += out[i].images.length;
+    }
+    const budget = Math.max(12000, Math.round(CTX * 2.6) - 22000);
+    let total = out.reduce((n, m) => n + sizeOf(m), 0);
+    let task = out.length - (convo.length - start); // где в out начинается текущая просьба
+    // 1) прошлые просьбы, начиная с самых старых
+    while (total > budget && task > 0) {
+      total -= sizeOf(out.shift());
+      task--;
+      while (task > 0 && out[0].role !== 'user') { total -= sizeOf(out.shift()); task--; }
+    }
+    // 2) старые результаты шагов и устаревшие состояния текущей просьбы
+    for (let i = task + 1; total > budget && i < out.length - 6; i++) {
+      const m = out[i];
+      if ((m.role === 'tool' || AUTO_MSG.test(String(m.content || ''))) && String(m.content || '').length > 400) {
+        total -= sizeOf(m);
+        m.content = clip(String(m.content), 300);
+        delete m.images;
+        total += sizeOf(m);
+      }
+    }
+    // 3) самые ранние шаги текущей просьбы (целыми группами: ответ модели и результаты его шагов)
+    let dropped = 0;
+    while (total > budget && out.length - (task + 1) > 8) {
+      let end = task + 2;
+      while (end < out.length - 8 && out[end].role !== 'assistant') end++;
+      const removed = out.splice(task + 1, end - (task + 1));
+      if (!removed.length) break;
+      dropped += removed.length;
+      total -= removed.reduce((n, m) => n + sizeOf(m), 0);
+    }
+    if (dropped) {
+      out.splice(task + 1, 0, { role: 'user', content: `[Ранние шаги этой просьбы (${dropped} сообщ.) убраны, чтобы уместиться в память модели. Что уже сделано — смотри по последнему состоянию.]` });
+      if (out[task + 2] && out[task + 2].role === 'tool') out.splice(task + 2, 0, { role: 'assistant', content: '[продолжаю]' });
     }
     return out;
   }
@@ -723,6 +842,9 @@
     if (field) { field.value = ''; autosize(); }
     setBusy(true);
     stopRequested = false;
+    allowAllThisTurn = false;
+    autoAllowNoted = false;
+    seen = new Map();
     msg('user', esc(text));
     try {
       let state = null;
@@ -731,16 +853,55 @@
         state = await snapshot().catch((e) => ({ error: e.message }));
         if (attachScreen) image = await screenshot();
       }
+      turnStart = convo.length;
       convo.push({
         role: 'user',
         content: MODE_TAG[mode] + '\n' + text + '\n\n[Состояние редактора — автоматически]\n' + clip(JSON.stringify(state ?? { note: 'Редактор ещё загружается' }), 4000),
         ...(image ? { images: [image] } : {}),
       });
-      for (let step = 0; step < CFG.maxSteps; step++) {
-        if (stopRequested) { msg('bot', 'Остановлено.'); break; }
-        typing(true);
-        const j = await ask();
-        typing(false);
+      await runSteps();
+    } catch (e) {
+      turnFailed(e);
+    } finally {
+      turnDone();
+    }
+  }
+  // Продолжить ту же просьбу после остановки по числу шагов (без нового сообщения).
+  async function continueTurn() {
+    if (busy) return;
+    setBusy(true);
+    stopRequested = false;
+    try { await runSteps(); } catch (e) { turnFailed(e); } finally { turnDone(); }
+  }
+  function turnFailed(e) {
+    typing(false);
+    if (e.noVision) setEye(false);
+    msg('err', esc(e.message || String(e)));
+  }
+  function turnDone() {
+    typing(false);
+    setBusy(false);
+    root.classList.remove('acting');
+    updateBarAnswer();
+  }
+  // Повторы считаются за всю просьбу, в том числе после «Продолжить».
+  let seen = new Map();
+  async function runSteps() {
+    const limit = agentSteps();
+    for (let step = 0; ; step++) {
+      if (stopRequested) { msg('bot', 'Остановлено.'); break; }
+      if (step >= limit) {
+        const d = msg('note', `Сделал ${limit} шагов подряд и остановился (так задано: «Настройки» внизу панели). `);
+        const b = document.createElement('button');
+        b.className = 'st-mini';
+        b.textContent = 'Продолжить';
+        b.onclick = () => { b.disabled = true; continueTurn(); };
+        d.appendChild(b);
+        break;
+      }
+      typing(true);
+      const j = await ask();
+      typing(false);
         const m = j.message || {};
         let calls = Array.isArray(m.tool_calls) ? m.tool_calls : [];
         let content = (m.content || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').replace(/<think>[\s\S]*?<\/think>/g, '')
@@ -759,30 +920,44 @@
         if (content) msg('bot', format(content));
         if (!calls.length) break;
         let pendingImage = null;
+        let acted = false;
         for (const c of calls) {
           if (stopRequested) break;
           const fname = c.function && c.function.name;
           let a = (c.function && c.function.arguments) || {};
           if (typeof a === 'string') { try { a = JSON.parse(a || '{}'); } catch { a = {}; } }
+          const sig = fname + ' ' + JSON.stringify(a || {});
+          const times = (seen.get(sig) || 0) + 1;
+          seen.set(sig, times);
           let result;
           try { result = await runTool(fname, a || {}); } catch (e) { result = { ok: false, error: e.message || String(e) }; }
           if (result && result.__image) { pendingImage = result.__image; delete result.__image; }
+          const reading = READ_TOOLS.has(fname);
+          if (!reading) acted = true;
+          // Одно и то же действие по кругу — подсказываем модели остановиться и проверить результат.
+          if (times >= (reading ? 4 : 3)) {
+            const warning = `Ты уже ${times} раз(а) вызывал ${fname} с теми же параметрами. Не повторяй. `
+              + (reading ? 'Всё нужное уже получено — действуй или заверши ответ.' : 'Проверь результат (get_state или look_at_screen) и переходи к следующей части задачи; если задача выполнена — заверши её коротким итогом.');
+            result = (result && typeof result === 'object' && !Array.isArray(result)) ? { ...result, warning } : { result, warning };
+          }
           convo.push({ role: 'tool', tool_name: fname, content: clip(JSON.stringify(result ?? { ok: true }), 6000) });
         }
-        if (pendingImage) convo.push({ role: 'user', content: '[Снимок экрана после действий — прислан автоматически]', images: [pendingImage] });
-        if (step === CFG.maxSteps - 1) msg('bot', `Сделал ${CFG.maxSteps} шагов подряд и остановился. Напишите «продолжай», если нужно дальше.`);
-      }
-    } catch (e) {
-      typing(false);
-      if (e.noVision) setEye(false);
-      msg('err', esc(e.message || String(e)));
-    } finally {
-      typing(false);
-      setBusy(false);
-      root.classList.remove('acting');
-      updateBarAnswer();
+        // После действий — свежее состояние документа (и снимок, если помощнику можно смотреть
+        // на экран): модель видит, что уже сделано, и не рисует одно и то же заново.
+        if (acted && !stopRequested && PC.ready()) {
+          const st = await snapshot().catch(() => null);
+          if (!pendingImage && attachScreen && store.get('agentLook', true)) pendingImage = await screenshot().catch(() => null);
+          convo.push({
+            role: 'user',
+            content: '[Состояние после этих шагов — автоматически]\n' + clip(JSON.stringify(st ?? {}), 3500) + (pendingImage ? '\n(снимок экрана приложен)' : ''),
+            ...(pendingImage ? { images: [pendingImage] } : {}),
+          });
+        } else if (pendingImage) {
+          convo.push({ role: 'user', content: '[Снимок экрана после действий — прислан автоматически]', images: [pendingImage] });
+        }
     }
   }
+
   // ------------------------------------------------------------------ быстрая строка
   // Ctrl+Shift+Пробел: поле внизу над холстом. Ответ всплывает над ним; вся история — в панели.
   const bar = $('bar');
@@ -1635,6 +1810,8 @@
       const r = await fetch(CFG.api, { credentials: 'same-origin' });
       const j = await r.json();
       if (j.ok) {
+        if (Number(j.ctx) > 0) CTX = Number(j.ctx);
+        if (j.source) $('sub').title = 'Откуда взята модель: ' + j.source;
         $('sub').textContent = 'Модель: ' + j.model;
         fetch('studio/version.json', { cache: 'no-store' }).then((v) => (v.ok ? v.json() : null)).then((v) => {
           if (!v || !v.build) return;
@@ -1665,6 +1842,7 @@
     document.body.appendChild(root);
     root.querySelectorAll('.st-seg button').forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
     $('eye').onclick = () => setEye(!attachScreen);
+    initAgentMenu();
     $('hide').onclick = () => setOpen(false);
     $('fab').onclick = () => { setOpen(true); setBadge(false); };
     $('send').onclick = () => send();
@@ -1691,10 +1869,26 @@
     status();
   }
 
+  // ------------------------------------------------------------------ шрифты
+  // Двойники шрифтов Microsoft из папки fonts/ сборки (Carlito вместо Calibri, Liberation Sans вместо
+  // Arial…): в браузере нет системных шрифтов, а с ними ячейки и столбцы меряются как в Excel.
+  async function loadFonts() {
+    if (!VC() || typeof VC().addFont !== 'function') return;
+    let list = [];
+    try { list = ((await (await fetch('fonts/manifest.json', { cache: 'no-cache' })).json()) || {}).fonts || []; } catch { return; }
+    for (const f of list) {
+      try {
+        const r = await fetch('fonts/' + encodeURIComponent(f.file));
+        if (r.ok) VC().addFont(f.file, new Uint8Array(await r.arrayBuffer()));
+      } catch (e) { console.warn('AI-Excel: шрифт ' + f.file, e); }
+    }
+  }
+
   async function boot() {
     mount();
     // Ждём, пока WebAssembly загрузится и поставит window.aiexcel.
     while (!PC.ready()) await sleep(200);
+    loadFonts();
     Files.start();
     await sleep(300);
     root.classList.add('ready');

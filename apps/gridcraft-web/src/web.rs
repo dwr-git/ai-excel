@@ -56,6 +56,16 @@ pub fn start() {
                 options,
                 Box::new(move |cc| {
                     let inbox: Inbox = Inbox::default();
+                    // AI-Excel: in the Russian interface (the first start's) new sheets are «Лист1»,
+                    // «Лист2»…, as in Russian Excel. Set before the first workbook is made.
+                    let saved_ui = stored(crate::prefs::UI_KEY).and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+                    let russian = saved_ui
+                        .as_ref()
+                        .and_then(gridcraft_ui_egui::i18n::saved_language)
+                        .is_none_or(|l| l == gridcraft_ui_egui::i18n::Language::Ru);
+                    if russian {
+                        gridcraft_engine::model::workbook::set_sheet_stem("Лист");
+                    }
                     let mut session = Session::new();
                     // In host mode the parent sends the workbook to edit; no sample meanwhile.
                     let q = if app_bridge.is_some() { String::new() } else { query() };
@@ -404,8 +414,16 @@ fn download(name: &str, bytes: &[u8]) -> Result<(), String> {
     let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
     let window = web_sys::window().ok_or("no window")?;
 
-    let show_picker_fn: Option<js_sys::Function> =
-        js_sys::Reflect::get(&window, &JsValue::from_str("showSaveFilePicker")).ok().and_then(|v| v.dyn_into().ok());
+    // AI-Excel: a copy for the computer is an ordinary download (into Downloads), the same in every
+    // browser; the workbook itself lives in «Мои книги» on the server. The browser's own Save As
+    // window (showSaveFilePicker) confused people and needs a user gesture an export from the
+    // editor often lacks. `?picker` brings it back.
+    let picker_wanted = window.location().search().is_ok_and(|q| q.contains("picker"));
+    let show_picker_fn: Option<js_sys::Function> = if picker_wanted {
+        js_sys::Reflect::get(&window, &JsValue::from_str("showSaveFilePicker")).ok().and_then(|v| v.dyn_into().ok())
+    } else {
+        None
+    };
 
     if let Some(picker_fn) = show_picker_fn {
         let ext = std::path::Path::new(name).extension().and_then(|e| e.to_str()).unwrap_or("xlsx").to_ascii_lowercase();

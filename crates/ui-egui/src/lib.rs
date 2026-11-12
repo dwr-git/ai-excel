@@ -305,6 +305,9 @@ pub struct SheetApp {
     /// Han face order the installed fonts were built with; a language switch rebuilds the fonts
     /// only when it changes this (see `theme::HanOrder`).
     fonts_han: Option<theme::HanOrder>,
+    /// The [`fonts::memory_generation`] the font set was built with: fonts the host installs later
+    /// (the web page's metric-compatible fonts) rebuild it.
+    fonts_memory: u64,
     effective_dark: bool,
     /// The desktop's light/dark choice, watched while the app runs (Linux has no winit answer).
     desktop_theme: desktop_theme::DesktopTheme,
@@ -365,6 +368,7 @@ impl SheetApp {
             fonts_seen: (0, 0),
             fonts_rebind: false,
             fonts_han: None,
+            fonts_memory: fonts::memory_generation(),
             effective_dark: false,
             desktop_theme: desktop_theme::DesktopTheme::default(),
             desktop_dark: None,
@@ -1260,6 +1264,12 @@ impl SheetApp {
         // Floating pictures' textures go with their workbook, even when no sheet is painted.
         let open: Vec<u64> = self.session.documents().iter().map(|d| d.uid).collect();
         floating_pictures::forget_closed(ctx, &open);
+        let memory = fonts::memory_generation();
+        if memory != self.fonts_memory {
+            self.fonts_memory = memory;
+            self.fonts_ready = false;
+            self.fonts_set = false;
+        }
         if self.fonts_han.is_some_and(|han| han != theme::HanOrder::of(self.ui.language)) {
             self.fonts_ready = false;
             self.fonts_set = false;

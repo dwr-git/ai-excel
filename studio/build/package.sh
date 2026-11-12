@@ -40,6 +40,22 @@ cp "$ROOT/studio/web/favicon.png" "$ROOT/studio/web/apple-touch-icon.png" "$APP/
 python3 "$ROOT/studio/build/make_labels.py" "$APP/studio/ru-labels.json"
 
 # The assistant's PHP: api/ next to index.html.
+# Metric-compatible open fonts (Carlito for Calibri, Liberation for Arial, Times New Roman and Courier
+# New, Caladea for Cambria): the browser has no system fonts, and with these the cells measure as
+# in Excel. AI_EXCEL_FONTS_DIR is a folder of .ttf files (CI installs them from Ubuntu packages).
+mkdir -p "$APP/fonts"
+if [ -n "${AI_EXCEL_FONTS_DIR:-}" ] && [ -d "$AI_EXCEL_FONTS_DIR" ]; then
+  cp "$AI_EXCEL_FONTS_DIR"/*.ttf "$APP/fonts/"
+  cp "$AI_EXCEL_FONTS_DIR"/*.txt "$APP/fonts/" 2>/dev/null || true
+fi
+python3 - "$APP/fonts" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+fonts = sorted(f for f in os.listdir(d) if f.lower().endswith(".ttf"))
+json.dump({"fonts": [{"file": f, "size": os.path.getsize(os.path.join(d, f))} for f in fonts]}, open(os.path.join(d, "manifest.json"), "w"))
+print(f"fonts: {len(fonts)} file(s)")
+PY
+
 mkdir -p "$APP/api"
 cp "$ROOT"/studio/api/*.php "$APP/api/"
 cp "$ROOT/studio/api/.htaccess" "$APP/api/"

@@ -39,6 +39,7 @@ set_exception_handler(static function (Throwable $e): void {
     files_fail(500, 'Внутренняя ошибка хранилища файлов. Подробности — в журнале PHP.');
 });
 
+require_once __DIR__ . '/llm.php';
 $STUDIO = require __DIR__ . '/settings.php';
 
 // ---------------------------------------------------------------- кто это

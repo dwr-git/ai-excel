@@ -349,7 +349,7 @@ fn accessibility(s: &mut Session, _: &Json) -> Result<Json> {
         if !sh.merges.is_empty() {
             issues.push(json!({"sheet": sh.name, "issue": "Merged cells", "count": sh.merges.len()}));
         }
-        if sh.name.starts_with("Sheet") {
+        if sh.name.starts_with("Sheet") || sh.name.starts_with(&gridcraft_model::workbook::sheet_stem()) {
             issues.push(json!({"sheet": sh.name, "issue": "Default sheet name"}));
         }
     }

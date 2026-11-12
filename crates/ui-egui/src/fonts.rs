@@ -43,6 +43,63 @@ pub struct Face {
     pub italic: bool,
 }
 
+/// Font files the host installed in memory, by file name (AI-Excel in the browser, where there
+/// are no system fonts: the page hands over metric-compatible open fonts such as Carlito for
+/// Calibri). Each is kept for the rest of the run, like the interface fonts read from disk.
+static MEMORY: std::sync::Mutex<std::collections::BTreeMap<String, &'static [u8]>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
+
+/// Bumped whenever [`install_memory_font`] adds a font, so the app rebuilds its font set.
+static MEMORY_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The most fonts the host may install, and the largest one.
+const MAX_MEMORY_FONTS: usize = 64;
+const MAX_MEMORY_FONT_BYTES: usize = 64 << 20;
+
+/// The file name a path or name ends with (`/usr/share/fonts/x/Carlito-Regular.ttf` →
+/// `Carlito-Regular.ttf`), compared case-insensitively.
+fn file_name_key(path: &str) -> String {
+    path.rsplit(['/', '\\']).next().unwrap_or(path).trim().to_lowercase()
+}
+
+/// Install a font file the host has as bytes (`name` is its file name, e.g. `Carlito-Regular.ttf`).
+/// The interface and cell roles then use it wherever their candidates name that file, from the next
+/// frame on. Returns whether it was new; a file that is not a readable font, too large, or past the
+/// limit is refused with the reason.
+pub fn install_memory_font(name: &str, bytes: Vec<u8>) -> Result<bool, String> {
+    let key = file_name_key(name);
+    if key.is_empty() || key.chars().count() > 255 || !(key.ends_with(".ttf") || key.ends_with(".otf") || key.ends_with(".ttc")) {
+        return Err(format!("{name}: not a font file name (.ttf, .otf or .ttc)"));
+    }
+    if bytes.len() > MAX_MEMORY_FONT_BYTES {
+        return Err(format!("{name}: the font is too large"));
+    }
+    if !crate::theme::font_parses(&bytes, 0) {
+        return Err(format!("{name}: not a font file this app can read"));
+    }
+    let mut fonts = MEMORY.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if fonts.contains_key(&key) {
+        return Ok(false);
+    }
+    if fonts.len() >= MAX_MEMORY_FONTS {
+        return Err(format!("{name}: too many fonts installed"));
+    }
+    fonts.insert(key, Box::leak(bytes.into_boxed_slice()));
+    MEMORY_GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    Ok(true)
+}
+
+/// The installed in-memory font for a candidate path (by its file name), if it has face `index`.
+pub(crate) fn memory_font_for(path: &str, index: u32) -> Option<&'static [u8]> {
+    let fonts = MEMORY.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let bytes = *fonts.get(&file_name_key(path))?;
+    crate::theme::font_parses(bytes, index).then_some(bytes)
+}
+
+/// How many times [`install_memory_font`] has added a font (the app rebuilds its fonts on a change).
+pub fn memory_generation() -> u64 {
+    MEMORY_GENERATION.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// The font folders of the platform (the system's and the user's). Empty on wasm.
 pub fn system_font_dirs() -> Vec<PathBuf> {
     #[cfg(target_arch = "wasm32")]
@@ -381,6 +438,26 @@ pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// AI-Excel in the browser: the page installs fonts by file name; candidates find them by the
+    /// same name in any folder, and junk is refused without touching the set.
+    #[test]
+    fn installed_memory_fonts_are_found_by_file_name() {
+        let real = egui::FontDefinitions::default().font_data.values().next().map(|fd| fd.font.to_vec()).unwrap_or_default();
+        let before = memory_generation();
+        assert!(install_memory_font("fonts/AiExcelTest-Regular.ttf", real.clone()).unwrap());
+        assert!(memory_generation() > before, "a new font rebuilds the font set");
+        assert!(!install_memory_font("AiExcelTest-Regular.ttf", real.clone()).unwrap(), "the same file twice is one font");
+        assert!(memory_font_for("/usr/share/fonts/truetype/x/aiexceltest-regular.TTF", 0).is_some());
+        assert!(memory_font_for("C:\\Windows\\Fonts\\AiExcelTest-Regular.ttf", 0).is_some());
+        assert!(memory_font_for("/x/AiExcelTest-Regular.ttf", 7).is_none(), "no such face in the file");
+        assert!(memory_font_for("/x/Other.ttf", 0).is_none());
+        let generation = memory_generation();
+        assert!(install_memory_font("Broken.ttf", real.get(..40).unwrap_or_default().to_vec()).is_err());
+        assert!(install_memory_font("notes.txt", real.clone()).is_err());
+        assert!(install_memory_font("", real).is_err());
+        assert_eq!(memory_generation(), generation, "refused files change nothing");
+    }
 
     #[test]
     fn style_names_map_to_weight_and_slant() {

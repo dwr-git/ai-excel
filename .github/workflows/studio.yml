@@ -58,7 +58,20 @@ jobs:
       - name: Проверить загрузчик частями
         run: cargo test -p gridcraft-web-boot
 
+      - name: Шрифты-двойники (Carlito вместо Calibri, Liberation вместо Arial и Times New Roman)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea
+          mkdir -p "$RUNNER_TEMP/fonts"
+          for f in $(fc-list -f '%{file}\n' | grep -E '/(liberation|crosextra)/.*\.ttf$' | sort -u); do cp "$f" "$RUNNER_TEMP/fonts/"; done
+          cp /usr/share/doc/fonts-liberation/copyright "$RUNNER_TEMP/fonts/LICENSE-Liberation.txt"
+          cp /usr/share/doc/fonts-crosextra-carlito/copyright "$RUNNER_TEMP/fonts/LICENSE-Carlito.txt"
+          cp /usr/share/doc/fonts-crosextra-caladea/copyright "$RUNNER_TEMP/fonts/LICENSE-Caladea.txt"
+          test "$(ls "$RUNNER_TEMP"/fonts/*.ttf | wc -l)" -ge 12
+
       - name: Собрать сайт
+        env:
+          AI_EXCEL_FONTS_DIR: ${{ runner.temp }}/fonts
         run: studio/build/package.sh
 
       - name: Сохранить zip в Artifacts

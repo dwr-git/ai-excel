@@ -314,7 +314,7 @@ pub(crate) fn font_parses(bytes: &[u8], index: u32) -> bool {
 #[cfg(not(target_arch = "wasm32"))]
 fn try_load(paths: &[(&str, u32)]) -> Option<FontData> {
     for (p, index) in paths {
-        if let Some(bytes) = font_file(p, *index) {
+        if let Some(bytes) = crate::fonts::memory_font_for(p, *index).or_else(|| font_file(p, *index)) {
             let mut fd = FontData::from_static(bytes);
             fd.index = *index;
             return Some(fd);
@@ -362,8 +362,17 @@ pub(crate) fn drop_unparseable_fonts(fonts: &mut FontDefinitions) {
     }
 }
 
+/// The browser has no font files: only the ones the page installed ([`crate::fonts::install_memory_font`]),
+/// found by the candidate's file name (`Carlito-Regular.ttf` for Calibri, `LiberationSans-Regular.ttf`…).
 #[cfg(target_arch = "wasm32")]
-fn try_load(_paths: &[(&str, u32)]) -> Option<FontData> {
+fn try_load(paths: &[(&str, u32)]) -> Option<FontData> {
+    for (p, index) in paths {
+        if let Some(bytes) = crate::fonts::memory_font_for(p, *index) {
+            let mut fd = FontData::from_static(bytes);
+            fd.index = *index;
+            return Some(fd);
+        }
+    }
     None
 }
 

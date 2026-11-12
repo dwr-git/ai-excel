@@ -562,3 +562,19 @@ body.studio-open .st-bar { left: calc((100% - var(--st-w)) / 2); width: min(640p
 .st-ai-formula { display: block; padding: 6px 8px; border-radius: 8px; font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text; }
 .st-ai-note, .st-ai-hint { margin: 0 0 8px; font-size: 12px; color: var(--st-text-faint); }
 .st-ai-hint { padding: 4px 4px 2px; }
+
+/* Настройки помощника (шестерёнка в шапке): шаги подряд, подтверждения */
+.st-agent-menu { min-width: 270px; }
+.st-menu-title { padding: 6px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--st-text); opacity: .65; }
+.st-menu-check { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; font-size: 13px; line-height: 1.35; cursor: pointer; color: var(--st-text); border-radius: 9px; }
+.st-menu-check:hover { background: var(--st-field); }
+#studio-root[data-theme="brand"] .st-menu-check:hover { background: rgba(255,255,255,.1); }
+.st-menu-check input, .st-confirm-check input { margin: 2px 0 0; accent-color: var(--st-accent); flex: none; }
+.st-confirm-check { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; font-size: 12.5px; opacity: .85; cursor: pointer; }
+.st-confirm .st-row { flex-wrap: wrap; }
+.st-msg.note .st-mini { margin-left: 6px; }
+.st-agent-wrap { position: relative; display: inline-flex; margin-left: auto; margin-right: 10px; }
+.st-agent-wrap > button { display: inline-flex; align-items: center; gap: 4px; }
+.st-agent-wrap > button svg { width: 13px; height: 13px; }
+.st-agent-wrap .st-agent-menu { top: auto; bottom: calc(100% + 8px); right: -40px; }
+.st-foot .st-agent-menu { font-size: 13px; color: var(--st-text); } .st-foot .st-agent-menu button { text-decoration: none; padding: 8px 10px 8px 28px; }

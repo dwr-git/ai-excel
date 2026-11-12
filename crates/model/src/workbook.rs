@@ -205,11 +205,27 @@ impl Default for Workbook {
     }
 }
 
+/// What new sheets are called before their number: `Sheet` (Excel in English), or the interface
+/// language's word (AI-Excel sets `Лист`, as Russian Excel names them).
+static SHEET_STEM: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
+
+/// Set the word new sheets are named with (`Лист` → `Лист1`, `Лист2`…). Blank restores `Sheet`.
+pub fn set_sheet_stem(stem: &str) {
+    let stem = stem.trim();
+    let value = (!stem.is_empty() && stem.chars().count() <= 20).then(|| stem.to_string());
+    *SHEET_STEM.write().unwrap_or_else(std::sync::PoisonError::into_inner) = value;
+}
+
+/// The word new sheets are named with (`Sheet` unless [`set_sheet_stem`] changed it).
+pub fn sheet_stem() -> String {
+    SHEET_STEM.read().unwrap_or_else(std::sync::PoisonError::into_inner).clone().unwrap_or_else(|| "Sheet".to_string())
+}
+
 impl Workbook {
     /// A new workbook with one sheet, "Sheet1".
     pub fn new() -> Workbook {
         Workbook {
-            sheets: vec![Arc::new(Sheet::new("Sheet1"))],
+            sheets: vec![Arc::new(Sheet::new(format!("{}1", sheet_stem())))],
             names: vec![],
             styles: StyleTable::default(),
             theme: Theme::default(),
@@ -242,9 +258,10 @@ impl Workbook {
     pub fn active(&self) -> Option<&Sheet> {
         self.sheet(self.active_sheet)
     }
-    /// A fresh sheet name `SheetN` not in use.
+    /// A fresh sheet name `SheetN` not in use (`ЛистN` once the interface set the stem).
     pub fn next_sheet_name(&self) -> String {
-        (1..).map(|n| format!("Sheet{n}")).find(|n| self.sheet_index(n).is_none()).unwrap_or_else(|| "Sheet".into())
+        let stem = sheet_stem();
+        (1..).map(|n| format!("{stem}{n}")).find(|n| self.sheet_index(n).is_none()).unwrap_or(stem)
     }
     /// Validates a sheet name like Excel: 1–31 chars, none of `: \ / ? * [ ]`, not starting or
     /// ending with `'`, unique (case-insensitive) unless it is `except`'s own name.

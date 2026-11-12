@@ -141,6 +141,17 @@ fn clean_name(name: &str, fallback: &str) -> String {
     if name.is_empty() { fallback.to_string() } else { name }
 }
 
+/// Install a font file the page fetched (the metric-compatible open fonts shipped with the page,
+/// such as Carlito for Calibri and Liberation Sans for Arial): cells and the interface use it from
+/// the next frame. Resolves with whether it was new.
+fn add_font(name: String, bytes: JsValue) -> Result<JsValue, JsValue> {
+    let bytes = bytes_of(&bytes)?;
+    let name = clean_name(&name, "font.ttf");
+    let added = gridcraft_ui_egui::fonts::install_memory_font(&name, bytes).map_err(|e| error(&e))?;
+    repaint();
+    Ok(JsValue::from_bool(added))
+}
+
 /// Open a workbook the page has (from the server's files): it opens on the next frame, as one
 /// picked with File › Open.
 fn open(name: String, bytes: JsValue) -> Result<(), JsValue> {
@@ -230,6 +241,7 @@ pub fn install() -> Result<(), JsValue> {
     set(&obj, "inspect", Closure::<dyn Fn() -> js_sys::Promise>::new(|| request("ui.inspect", json!({}))).into_js_value())?;
     set(&obj, "screenshot", Closure::<dyn Fn() -> js_sys::Promise>::new(|| request("ui.screenshot", json!({}))).into_js_value())?;
     set(&obj, "open", Closure::<dyn Fn(String, JsValue) -> Result<(), JsValue>>::new(open).into_js_value())?;
+    set(&obj, "addFont", Closure::<dyn Fn(String, JsValue) -> Result<JsValue, JsValue>>::new(add_font).into_js_value())?;
     set(
         &obj,
         "wantsKeyboard",
