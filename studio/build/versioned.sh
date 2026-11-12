@@ -31,7 +31,7 @@ mkdir -p "$APP/b/$N" "$APP/studio"
 for doc in README.ru.md CHANGES.ru.md nginx.conf.example; do
   [ -f "$FLAT/$doc" ] && mv "$FLAT/$doc" "$APP/$doc"
 done
-for icon in favicon.png apple-touch-icon.png; do
+for icon in favicon.png favicon-16.png favicon.ico apple-touch-icon.png; do
   [ -f "$FLAT/$icon" ] && cp "$FLAT/$icon" "$APP/$icon"
 done
 [ -f "$FLAT/.htaccess" ] && cp "$FLAT/.htaccess" "$APP/.htaccess"
@@ -80,6 +80,9 @@ PHP
 cat >"$APP/index.html" <<HTML
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><title>$NAME</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta http-equiv="refresh" content="0;url=index.php">
 <script>location.replace('index.php' + location.search + location.hash);</script>
 </head><body><p><a href="index.php">Открыть $NAME</a></p></body></html>

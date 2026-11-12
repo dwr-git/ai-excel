@@ -131,9 +131,9 @@ pub enum Icon {
     OpenFolder,
     Info,
     Print,
-    /// AI-Excel on the web: back to the site the editor lives on (a house with a door).
+    /// AI Таблицы on the web: back to the site the editor lives on (a house with a door).
     House,
-    /// AI-Excel: the AI assistant (a large four-pointed sparkle and a small one).
+    /// AI Таблицы: the AI assistant (a large four-pointed sparkle and a small one).
     Sparkle,
 }
 

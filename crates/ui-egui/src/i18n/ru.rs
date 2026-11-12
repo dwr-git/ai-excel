@@ -228,7 +228,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Command\nPalette" => "Палитра\nкоманд",
         "Agent\nControl" => "Управление\nагентом",
         "Action\nJournal" => "Журнал\nдействий",
-        "About\nAI-Excel" => "О\nAI-Excel",
+        "About\nAI Таблицы" => "О\nAI Таблицы",
         "Share" => "Поделиться",
         "Add Chart\nElement" => "Добавить элемент\nдиаграммы",
         "Change\nChart Type" => "Изменить тип\nдиаграммы",
@@ -347,7 +347,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Options" => "Параметры",
         "Account" => "Учетная запись",
         "Product Information" => "Сведения о продукте",
-        "About AI-Excel" => "О программе AI-Excel",
+        "About AI Таблицы" => "О программе AI Таблицы",
         "Version" => "Версия",
         "Platform" => "Платформа",
         "Licence" => "Лицензия",
@@ -435,7 +435,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Next sheet" => "Следующий лист",
         "All sheets" => "Все листы",
         "New sheet (⇧F11)" => "Новый лист (⇧F11)",
-        // AI-Excel: the rest of the interface (labels other catalogs already had).
+        // AI Таблицы: the rest of the interface (labels other catalogs already had).
         " (password)" => " (пароль)",
         " (password, unlocked)" => " (пароль, разблокирован)",
         "$ English (United States)" => "$ английский (США)",
@@ -719,7 +719,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Horizontal (Category) Axis Labels:" => "Подписи горизонтальной оси (категории):",
         "Horizontal axis title:" => "Название горизонтальной оси:",
         "Household Budget" => "Семейный бюджет",
-        "How agents drive AI-Excel (MCP / control channel)" => "Как агенты управляют AI-Excel (MCP / канал управления)",
+        "How agents drive AI Таблицы (MCP / control channel)" => "Как агенты управляют AI Таблицы (MCP / канал управления)",
         "Hypothesized Mean Difference:" => "Гипотетическая средняя разность:",
         "Ignore Once" => "Пропустить",
         "Ignore blank" => "Игнорировать пустые ячейки",
@@ -1156,7 +1156,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "— VBA project (preserved, not run)" => "— проект VBA (сохранён, не запускается)",
         "— {steps} steps" => "— шагов: {steps}",
         "€ Euro" => "€ евро",
-        // AI-Excel
+        // AI Таблицы
         "Brand" => "Фирменная",
         "About" => "О программе",
         "Contributors" => "Участники",
@@ -1173,6 +1173,9 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         }
         "Based on GridCraft by the ArtCraft team (github.com/storytold/sheetcraft)." => {
             "Основан на GridCraft от команды ArtCraft (github.com/storytold/sheetcraft)."
+        }
+        "Excel is a trademark of Microsoft Corporation. AI Таблицы is not affiliated with Microsoft and works with files in its formats." => {
+            "Excel — товарный знак корпорации Microsoft. AI Таблицы не связаны с Microsoft и работает с файлами в её форматах."
         }
         "MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the GridCraft contributors." => {
             "MIT OR Apache-2.0. © 2026 ArtCraft Team и участники GridCraft."

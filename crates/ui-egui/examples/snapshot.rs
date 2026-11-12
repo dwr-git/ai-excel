@@ -4,8 +4,8 @@
 //!  [--size 1440x900] [--scale 2] [--cmd 'id={json}']... [--tab Insert] [--dark] [--language en|es|zh|ja|ko|ru|pt|de|cs|fr|tr]
 //!  [--dialog 'name={json}'] [--hf-edit header|footer] [--brand] [--web] out.png`
 //!
-//! `--brand` draws AI-Excel's Brand theme; `--web` gives the window the web page's hooks (the
-//! title bar's house, the AI chip by the selection) as AI-Excel in the browser has them.
+//! `--brand` draws AI Таблицы's Brand theme; `--web` gives the window the web page's hooks (the
+//! title bar's house, the AI chip by the selection) as AI Таблицы in the browser has them.
 
 use gridcraft_engine::Session;
 use gridcraft_ui_egui::SheetApp;

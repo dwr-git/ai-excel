@@ -43,7 +43,7 @@ pub struct Face {
     pub italic: bool,
 }
 
-/// Font files the host installed in memory, by file name (AI-Excel in the browser, where there
+/// Font files the host installed in memory, by file name (AI Таблицы in the browser, where there
 /// are no system fonts: the page hands over metric-compatible open fonts such as Carlito for
 /// Calibri). Each is kept for the rest of the run, like the interface fonts read from disk.
 static MEMORY: std::sync::Mutex<std::collections::BTreeMap<String, &'static [u8]>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
@@ -439,7 +439,7 @@ pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 mod tests {
     use super::*;
 
-    /// AI-Excel in the browser: the page installs fonts by file name; candidates find them by the
+    /// AI Таблицы in the browser: the page installs fonts by file name; candidates find them by the
     /// same name in any folder, and junk is refused without touching the set.
     #[test]
     fn installed_memory_fonts_are_found_by_file_name() {

@@ -828,7 +828,7 @@ impl Dialog {
             "commandSearch" => Dialog::custom("commandSearch", "Search Commands", json!({})),
             "agents" => Dialog::custom("agents", "Agent Control", json!({})),
             "about" => {
-                let mut d = Dialog::custom("about", "About AI-Excel", json!({}));
+                let mut d = Dialog::custom("about", "About AI Таблицы", json!({}));
                 d.tab = match p("tab").as_str() {
                     Some(t @ ("Contributors" | "Models")) => t.to_string(),
                     _ => "About".into(),
@@ -1275,7 +1275,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 "solverResults" => solver_results(app, ui, &mut d, &mut open),
                 "spelling" => spelling(app, ui, &mut d, &mut open),
                 "agents" => {
-                    ui.label("AI-Excel is fully drivable by agents. Every menu item, button and gesture is a command:");
+                    ui.label("AI Таблицы is fully drivable by agents. Every menu item, button and gesture is a command:");
                     ui.add_space(4.0);
                     ui.monospace("gridcraft --control 7979        # JSON-lines control channel\ngridcraft-cli mcp --connect 7979   # MCP bridged to this window\ngridcraft-cli mcp                   # headless MCP server");
                     ui.add_space(4.0);
@@ -1850,8 +1850,9 @@ fn about(ui: &mut egui::Ui, d: &mut Dialog) {
             ui.add_space(4.0);
             let lang = crate::i18n::current(ui.ctx());
             ui.label(lang.tr("A spreadsheet in the browser with an assistant on your own model."));
-            // AI-Excel works offline: no links out of the page.
+            // AI Таблицы works offline: no links out of the page.
             ui.label(lang.tr("Based on GridCraft by the ArtCraft team (github.com/storytold/sheetcraft)."));
+            ui.label(lang.tr("Excel is a trademark of Microsoft Corporation. AI Таблицы is not affiliated with Microsoft and works with files in its formats."));
             ui.add_space(4.0);
             ui.label(
                 egui::RichText::new(lang.tr("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the GridCraft contributors.")).small().weak(),
@@ -1864,7 +1865,7 @@ fn about(ui: &mut egui::Ui, d: &mut Dialog) {
 /// preserved VBA project. Mirrors Excel's Developer ▸ Macros list, but is honest that VBA is
 /// preserved and not executed.
 fn macros(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
-    ui.label("Automation in this workbook. AI-Excel runs its own scripts; a file's VBA project is preserved but not executed.");
+    ui.label("Automation in this workbook. AI Таблицы runs its own scripts; a file's VBA project is preserved but not executed.");
     ui.add_space(6.0);
     let items: Vec<Json> = d.result.as_ref().and_then(Json::as_array).cloned().unwrap_or_default();
     if items.is_empty() {

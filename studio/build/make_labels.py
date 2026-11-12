@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Russian names for the assistant's command search.
 
-Reads the Russian interface catalog AI-Excel is built with (crates/ui-egui/src/i18n/ru.rs: match arms
+Reads the Russian interface catalog AI Таблицы is built with (crates/ui-egui/src/i18n/ru.rs: match arms
 `"English" => "Русский",`) and writes studio/ru-labels.json:
 
     {"text": {"Sort A to Z": "Сортировка от А до Я", ...}}

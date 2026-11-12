@@ -2,7 +2,7 @@
 
 Every non-code asset in this repository (images, icons, fonts, example files, presets) is listed here with its author, source and licence. `cargo xtask assets` (part of `cargo xtask ci`) fails if an asset file is missing from this table.
 
-**Policy (mandatory):** GridCraft contains **no Microsoft, Adobe, Avid or Autodesk iconography, images, artwork, fonts, templates, themes, table styles or sample files**. Every asset is original work by GridCraft contributors or third-party material under an open licence (OSI open source, public domain / CC0, or Creative Commons that allows redistribution). Screenshots of Microsoft software are never committed. Font files are not added here: shared fonts live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), an optional build input (`CRAFT_FONTS_DIR`). AI-Excel carries none of the ArtCraft marks: the upstream `docs/brand/` files were removed, as their licence requires of modified versions.
+**Policy (mandatory):** GridCraft contains **no Microsoft, Adobe, Avid or Autodesk iconography, images, artwork, fonts, templates, themes, table styles or sample files**. Every asset is original work by GridCraft contributors or third-party material under an open licence (OSI open source, public domain / CC0, or Creative Commons that allows redistribution). Screenshots of Microsoft software are never committed. Font files are not added here: shared fonts live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), an optional build input (`CRAFT_FONTS_DIR`). AI Таблицы carries none of the ArtCraft marks: the upstream `docs/brand/` files were removed, as their licence requires of modified versions.
 
 Generated-in-code art is original and has no file to list: the UI icon set (`crates/ui-egui/src/icons.rs`), themes (`crates/engine/src/cmd/view.rs`), cell styles (`crates/engine/src/cmd/format.rs`), table styles (`crates/engine/src/tables.rs`), chart palettes and the sample workbooks (`crates/engine/src/sample.rs`).
 
@@ -34,9 +34,9 @@ Generated-in-code art is original and has no file to list: the UI icon set (`cra
 | `docs/images/format-chart.png` | GridCraft contributors | screenshot of GridCraft rendered offscreen (`crates/ui-egui/examples/snapshot.rs`) showing an original sample workbook | MIT OR Apache-2.0 | README screenshot; no third-party content |
 | `docs/images/page-break.png` | GridCraft contributors | screenshot of GridCraft rendered offscreen (`crates/ui-egui/examples/snapshot.rs`) showing an original sample workbook | MIT OR Apache-2.0 | README screenshot; no third-party content |
 
-## AI-Excel additions
+## AI Таблицы additions
 
 | Asset | Author | Source | Licence | Notes |
 |---|---|---|---|---|
-| `studio/web/favicon.png` | AI-Excel contributors | drawn in code for AI-Excel (Python/Pillow: rounded black frame, a small grid of cells) | MIT OR Apache-2.0 | Page icon, 32×32; same frame as the other AI- apps |
-| `studio/web/apple-touch-icon.png` | AI-Excel contributors | drawn in code for AI-Excel, as `favicon.png` | MIT OR Apache-2.0 | Home-screen icon, 180×180 |
+| `studio/web/favicon.png`, `studio/web/favicon-16.png`, `studio/web/favicon.ico` | Dewiar (project owner) | Dewiar favicon — owner's own artwork, provided by the project owner for use in these apps | provided by the project owner for use in these apps | Browser-tab icon, the same in every AI app |
+| `studio/web/apple-touch-icon.png` | Dewiar | original work made for this project (icon «tables», 512 px resized to 180 px) | MIT OR Apache-2.0 | Home-screen icon of AI Таблицы |

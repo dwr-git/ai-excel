@@ -63,7 +63,10 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                 app.toggle_autosave();
             }
             ui.add_space(6.0);
-            let __k = icon_button(ui, Icon::Home, t.text_dim, "Home", vec2(26.0, ch));
+            // On the web the house at the far right leads back to the site, so the start screen's button
+            // here gets a page glyph: one house per bar.
+            let start_icon = if app.services.go_home.is_some() { Icon::NewFile } else { Icon::Home };
+            let __k = icon_button(ui, start_icon, t.text_dim, "Home", vec2(26.0, ch));
             control_keytip(app, ui, &__k, "start");
             if __k.clicked() {
                 app.open_dialog("start", json!({}));
@@ -125,7 +128,7 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             let left_end = ui.min_rect().right();
             let right = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
-                // AI-Excel on the web: the way back to the site the editor lives on, at the far right.
+                // AI Таблицы on the web: the way back to the site the editor lives on, at the far right.
                 if app.services.go_home.is_some() {
                     let home = icon_button(ui, Icon::House, t.text, "To the site", vec2(30.0, ch)).on_hover_cursor(egui::CursorIcon::PointingHand);
                     home.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, app.ui.language.tr("To the site")));
@@ -2424,7 +2427,7 @@ fn automate(app: &mut SheetApp, ui: &mut Ui) {
     if __k.clicked() {
         app.open_dialog("commandSearch", json!({}));
     }
-    let __k = big_button(ui, Icon::Script, "Agent\nControl", "How agents drive AI-Excel (MCP / control channel)", false);
+    let __k = big_button(ui, Icon::Script, "Agent\nControl", "How agents drive AI Таблицы (MCP / control channel)", false);
     control_keytip(app, ui, &__k, "agents");
     if __k.clicked() {
         app.open_dialog("agents", json!({}));
@@ -2434,7 +2437,7 @@ fn automate(app: &mut SheetApp, ui: &mut Ui) {
     if __k.clicked() {
         app.open_dialog("journal", json!({}));
     }
-    let __k = big_button(ui, Icon::Script, "About\nAI-Excel", "Version, contributors and the AI models that helped", false);
+    let __k = big_button(ui, Icon::Script, "About\nAI Таблицы", "Version, contributors and the AI models that helped", false);
     control_keytip(app, ui, &__k, "about");
     if __k.clicked() {
         app.open_dialog("about", json!({}));

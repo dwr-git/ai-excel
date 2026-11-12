@@ -45,10 +45,10 @@ use serde_json::{Value as Json, json};
 pub use control::{ControlRequest, ControlResponse};
 pub mod desktop_theme;
 
-/// The product name in window titles, message boxes and About (AI-Excel, based on GridCraft).
-pub const PRODUCT: &str = "AI-Excel";
+/// The product name in window titles, message boxes and About (AI Таблицы, based on GridCraft).
+pub const PRODUCT: &str = "AI Таблицы";
 
-/// The display themes, in menu order: `(view.theme mode, English label)`. Brand is AI-Excel's own
+/// The display themes, in menu order: `(view.theme mode, English label)`. Brand is AI Таблицы's own
 /// and the default on the web; System follows the desktop's light/dark choice.
 pub const THEME_CHOICES: [(&str, &str); 4] = [("brand", "Brand"), ("system", "System"), ("light", "Light"), ("dark", "Dark")];
 
@@ -59,7 +59,7 @@ pub struct UiState {
     /// The manual preference, retained when following the system appearance.
     pub dark: bool,
     pub system_theme: bool,
-    /// AI-Excel's Brand theme (navy chrome, the brand's blue-violet accent, solid black menus);
+    /// AI Таблицы's Brand theme (navy chrome, the brand's blue-violet accent, solid black menus);
     /// drawn as egui's dark theme with [`theme::Tokens::brand`]. Off for Light, Dark and System.
     pub brand: bool,
     pub ribbon_tab: String,
@@ -224,15 +224,15 @@ pub struct Services {
     /// Web: hand PDF bytes to the browser's print flow directly (no download,
     /// no intermediate file) — opens the system print dialog on that PDF.
     pub print: Option<Box<dyn Fn(&[u8])>>,
-    /// Web (AI-Excel): hand a saved workbook to the page, which keeps it in the user's files on the
+    /// Web (AI Таблицы): hand a saved workbook to the page, which keeps it in the user's files on the
     /// server, instead of downloading it: (file name, the bytes, whether a new name was asked for —
     /// Save As). `Ok(true)` when the page took it (the workbook then counts as saved); `Ok(false)`
     /// downloads as usual. The page reports a failed upload itself.
     pub save_to_page: Option<Box<dyn Fn(&str, &[u8], bool) -> Result<bool, String>>>,
-    /// Web (AI-Excel): leave the editor for the site it lives on (`STUDIO_CONFIG.homeUrl`). The
+    /// Web (AI Таблицы): leave the editor for the site it lives on (`STUDIO_CONFIG.homeUrl`). The
     /// title bar shows a house for it when set.
     pub go_home: Option<Box<dyn Fn()>>,
-    /// Web (AI-Excel): open the page's AI menu for the selected cells at this point of the window
+    /// Web (AI Таблицы): open the page's AI menu for the selected cells at this point of the window
     /// (egui points). The grid shows an AI chip by the selection and the cell context menu an
     /// "AI Assistant…" item when set.
     pub ai_assist: Option<Box<dyn Fn(f32, f32)>>,
@@ -455,7 +455,7 @@ impl SheetApp {
         if let Some(r) = self.run_ui_command(id, &params) {
             return r;
         }
-        // AI-Excel on the web: Save and Save As of a workbook with no file of its own go to the page,
+        // AI Таблицы on the web: Save and Save As of a workbook with no file of its own go to the page,
         // which keeps them in the user's files on the server.
         if matches!(id, "file.save" | "file.saveAs")
             && params.get("path").and_then(Json::as_str).is_none_or(str::is_empty)
@@ -885,7 +885,7 @@ impl SheetApp {
             }
             "saveAs" => {
                 let suggested = self.session.active().map(|d| d.display_title()).unwrap_or_else(|| "Book1".into());
-                // AI-Excel on the web: File › Save As goes to the page (the user's files on the server).
+                // AI Таблицы on the web: File › Save As goes to the page (the user's files on the server).
                 if self.services.pick_save.is_none()
                     && let Some(r) = self.save_workbook_to_page(true)
                 {
@@ -977,7 +977,7 @@ impl SheetApp {
             let text = if dropped {
                 "This workbook's VBA macros could not be loaded and were dropped, so they will not be in the saved file. Keep the original file."
             } else {
-                "This workbook contains VBA macros. AI-Excel keeps them when you save as .xlsm, but does not run them."
+                "This workbook contains VBA macros. AI Таблицы keeps them when you save as .xlsm, but does not run them."
             };
             self.notice = Some(Notice { text: text.into(), kind: NoticeKind::Warning, action: Some(("What this means".into(), "macros".into())) });
         } else {

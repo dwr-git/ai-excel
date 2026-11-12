@@ -1,5 +1,5 @@
 <?php
-// studio/api/assistant.php — помощник AI-Excel: мост между панелью в браузере и моделью.
+// studio/api/assistant.php — помощник AI Таблицы: мост между панелью в браузере и моделью.
 //
 //   GET  assistant.php            проверка: вошёл ли пользователь, какая модель и откуда она взята
 //   POST assistant.php            {mode: "advice"|"act", messages: [...]} → {ok, message: {content, tool_calls}}

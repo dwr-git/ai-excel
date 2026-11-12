@@ -334,7 +334,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Command\nPalette" => "Komut\nPaleti",
         "Agent\nControl" => "Ajan\nKontrolü",
         "Action\nJournal" => "İşlem\nGünlüğü",
-        "About\nAI-Excel" => "AI-Excel\nHakkında",
+        "About\nAI Таблицы" => "AI Таблицы\nHakkında",
         "Share" => "Paylaş",
         "Add Chart\nElement" => "Grafik Öğesi\nEkle",
         "Change\nChart Type" => "Grafik Türünü\nDeğiştir",

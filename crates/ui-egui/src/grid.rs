@@ -3328,7 +3328,7 @@ fn context_menu(app: &mut SheetApp, ui: &mut egui::Ui) {
     let resp = egui::Area::new(egui::Id::new("cell_context")).fixed_pos(at).order(egui::Order::Foreground).show(ui.ctx(), |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             ui.set_min_width(200.0);
-            // AI-Excel on the web: the AI menu for the selected cells, first in the menu.
+            // AI Таблицы on the web: the AI menu for the selected cells, first in the menu.
             if app.services.ai_assist.is_some() {
                 let lang = crate::i18n::current(ui.ctx());
                 let label = egui::RichText::new(lang.tr("AI Assistant…")).strong();
@@ -3624,7 +3624,7 @@ fn error_check_tag(app: &mut SheetApp, ui: &mut egui::Ui, geo: &Geo, sh: &Sheet)
     });
 }
 
-/// Width and height of the AI chip by the selection (AI-Excel on the web).
+/// Width and height of the AI chip by the selection (AI Таблицы on the web).
 const AI_CHIP: egui::Vec2 = egui::Vec2::new(46.0, 20.0);
 
 /// Where the AI chip sits: just outside the selection's bottom-right corner (below the Auto Fill

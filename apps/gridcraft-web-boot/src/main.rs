@@ -1,4 +1,4 @@
-//! Starts AI-Excel in the browser from compressed parts of its WebAssembly.
+//! Starts AI Таблицы in the browser from compressed parts of its WebAssembly.
 //!
 //! Static hosts cap the size of one file (Cloudflare Pages: 25 MiB), and the app's wasm is at
 //! that size. `packaging/web/package.sh` gzips it and cuts it into parts listed in
@@ -275,12 +275,12 @@ mod boot {
                     Ok(()) => return,
                     Err(e) => e,
                 };
-                web_sys::console::error_2(&JsValue::from_str("ai-excel-boot: could not start AI-Excel:"), &error);
+                web_sys::console::error_2(&JsValue::from_str("ai-excel-boot: could not start AI Таблицы:"), &error);
                 let Some(&wait) = RETRY_AFTER.get(attempt) else {
-                    say("AI-Excel не скачался с сервера. Проверьте, что папка скопирована целиком, и попробуйте ещё раз: ", true);
+                    say("AI Таблицы не скачался с сервера. Проверьте, что папка скопирована целиком, и попробуйте ещё раз: ", true);
                     return;
                 };
-                say("Загрузка AI-Excel\u{2026} (скачать не вышло, пробую ещё раз)", false);
+                say("Загрузка AI Таблицы\u{2026} (скачать не вышло, пробую ещё раз)", false);
                 sleep(wait).await;
                 attempt += 1;
             }

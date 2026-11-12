@@ -1,5 +1,5 @@
 <?php
-// studio/api/files.php — файлы AI-Excel на вашем сервере. У каждого пользователя своя папка.
+// studio/api/files.php — файлы AI Таблицы на вашем сервере. У каждого пользователя своя папка.
 //
 //   GET  files.php                          → {ok, user, files: [{name, size, modified}], limit}
 //   GET  files.php?action=load&name=…       → сама книга (.xlsx, .xls, .ods, .csv…), application/octet-stream

@@ -1,6 +1,6 @@
 [package]
 name = "gridcraft-web-boot"
-description = "Starts AI-Excel in the browser from compressed parts of its WebAssembly"
+description = "Starts AI Таблицы in the browser from compressed parts of its WebAssembly"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

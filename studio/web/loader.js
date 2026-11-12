@@ -1,4 +1,4 @@
-/* AI-Excel — самопроверка загрузки.
+/* AI Таблицы — самопроверка загрузки.
  *
  * Пока приложение скачивается, страница показывает, сколько уже получено. Если запуск не удался,
  * здесь же видно, какой файл не пришёл и почему (а не только «Загрузка идёт дольше обычного»).
@@ -51,7 +51,7 @@
   function problem(text) {
     if (problems.indexOf(text) < 0 && problems.length < 6) {
       problems.push(text);
-      if (window.console && console.warn) console.warn('AI-Excel:', text);
+      if (window.console && console.warn) console.warn('AI Таблицы:', text);
       render();
     }
   }

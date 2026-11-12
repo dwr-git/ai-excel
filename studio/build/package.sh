@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds AI-Excel: the browser app plus the assistant panel and its PHP, as one folder ready for
+# Builds AI Таблицы: the browser app plus the assistant panel and its PHP, as one folder ready for
 # the server, zipped:  $DIST/ai-excel-build-<N>-<date>.zip  →  ai-excel/
 # The folder works under any name: every path in it is relative.
 #
@@ -35,8 +35,8 @@ rm -f "$APP/HOSTING.md"
 mkdir -p "$APP/studio"
 cp "$ROOT/studio/web/studio.js" "$ROOT/studio/web/studio.css" "$ROOT/studio/web/config.js" "$ROOT/studio/web/loader.js" "$APP/studio/"
 cp "$ROOT/studio/web/.htaccess" "$APP/studio/"
-# AI-Excel's own icon: a small sheet of cells in the frame the other AI- apps share.
-cp "$ROOT/studio/web/favicon.png" "$ROOT/studio/web/apple-touch-icon.png" "$APP/"
+# Icons: the shared Dewiar favicon in the browser tab, the app's own icon for home-screen shortcuts.
+cp "$ROOT/studio/web/favicon.png" "$ROOT/studio/web/favicon-16.png" "$ROOT/studio/web/favicon.ico" "$ROOT/studio/web/apple-touch-icon.png" "$APP/"
 python3 "$ROOT/studio/build/make_labels.py" "$APP/studio/ru-labels.json"
 
 # The assistant's PHP: api/ next to index.html.
@@ -99,7 +99,7 @@ sed -i.bak "s#<html lang=\"ru\"#<html lang=\"ru\" data-build=\"$BUILD\"#" "$APP/
 grep -q "data-build=\"$BUILD\"" "$APP/index.html" || { echo "error: the page has no build number" >&2; exit 1; }
 # Каждая сборка — в своей папке b/<номер>/, index.php выбирает самую новую (studio/build/versioned.sh):
 # обновление любой программой заливки не может смешать файлы разных сборок.
-"$ROOT/studio/build/versioned.sh" "$APP" "$BUILD" "AI-Excel"
+"$ROOT/studio/build/versioned.sh" "$APP" "$BUILD" "AI Таблицы"
 # Каждый текстовый файл с постоянным именем (страница, index.php, скрипты и стили панели, PHP
 # помощника, файл запуска с постоянным именем) получает в конце строку с номером сборки и набивкой
 # той же разной длины: иначе программа заливки, которая пропускает файлы того же размера, оставит

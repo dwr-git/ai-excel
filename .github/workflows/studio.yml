@@ -1,4 +1,4 @@
-# Сборка AI-Excel: готовая папка для сервера (zip).
+# Сборка AI Таблицы: готовая папка для сервера (zip).
 #
 # Запускается на каждое изменение ветки main и вручную (Actions → «Сборка» → Run workflow).
 # Результат:
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   build:
-    name: AI-Excel (браузер)
+    name: AI Таблицы (браузер)
     runs-on: ubuntu-latest
     timeout-minutes: 150
     env:

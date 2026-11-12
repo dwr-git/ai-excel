@@ -74,7 +74,7 @@ pub fn set_brand(ctx: &egui::Context, on: bool) {
 pub const BRAND_CANVAS: Color32 = Color32::from_rgb(0x16, 0x18, 0x2C);
 
 impl Tokens {
-    /// AI-Excel's light theme (NeuLight): soft blue-grey chrome and cards, a clear blue accent.
+    /// AI Таблицы's light theme (NeuLight): soft blue-grey chrome and cards, a clear blue accent.
     /// The cells stay white, as in a printed sheet.
     pub fn light() -> Tokens {
         let c = |r, g, b| Color32::from_rgb(r, g, b);
@@ -122,7 +122,7 @@ impl Tokens {
         }
     }
 
-    /// AI-Excel's dark theme (NeuDark): slate chrome and cards, a light blue accent with dark text
+    /// AI Таблицы's dark theme (NeuDark): slate chrome and cards, a light blue accent with dark text
     /// on it. The cells stay white.
     pub fn dark() -> Tokens {
         let c = |r, g, b| Color32::from_rgb(r, g, b);

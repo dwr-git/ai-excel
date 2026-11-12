@@ -248,7 +248,7 @@ fn save(app: &mut SheetApp, out: &mut Outcome) {
     if !app.commit_edit(0, 0, false, false) {
         return;
     }
-    // AI-Excel on the web: the page keeps the workbook in the user's files on the server.
+    // AI Таблицы on the web: the page keeps the workbook in the user's files on the server.
     if app.session.active().is_some_and(|d| d.path.is_some()) || app.services.save_to_page.is_some() {
         app.run_or_alert("file.save", json!({}));
         out.close = true;
@@ -1040,13 +1040,13 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
     });
     ui.add_space(18.0);
     ui.horizontal(|ui| {
-        if square_button(ui, Icon::Info, lang.tr("About AI-Excel")).clicked() {
+        if square_button(ui, Icon::Info, lang.tr("About AI Таблицы")).clicked() {
             app.open_dialog("about", json!({}));
         }
         ui.add_space(12.0);
         ui.vertical(|ui| {
             ui.add_space(14.0);
-            ui.label(RichText::new(lang.tr("About AI-Excel")).font(theme::ui_bold(13.5)).color(t.text));
+            ui.label(RichText::new(lang.tr("About AI Таблицы")).font(theme::ui_bold(13.5)).color(t.text));
             dim(ui, lang.tr("Version, contributors and the AI models that helped"));
         });
     });

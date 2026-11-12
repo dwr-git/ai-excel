@@ -348,9 +348,9 @@ pub struct Prefs {
     /// View › Show › Formula Bar (an application option in Excel, not saved in the file).
     pub formula_bar: bool,
     /// Paper size for the sheets of a new workbook (a `pageLayout.size` name such as "A4"); empty
-    /// keeps the model's default (Letter). AI-Excel's web app starts with A4.
+    /// keeps the model's default (Letter). AI Таблицы's web app starts with A4.
     pub new_paper: String,
-    /// Name stem of new workbooks ("Book" → Book1, Book2…; AI-Excel in Russian: "Книга"). Empty
+    /// Name stem of new workbooks ("Book" → Book1, Book2…; AI Таблицы in Russian: "Книга"). Empty
     /// means "Book".
     pub new_book_name: String,
 }

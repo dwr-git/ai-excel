@@ -4662,7 +4662,7 @@ fn a_script_cannot_switch_windows() {
 
 mod seams;
 
-/// AI-Excel's web app names new workbooks in Russian and sets them up on A4; the defaults keep
+/// AI Таблицы's web app names new workbooks in Russian and sets them up on A4; the defaults keep
 /// Book1 on Letter.
 #[test]
 fn new_workbooks_take_the_name_and_paper_from_the_preferences() {

@@ -1,4 +1,4 @@
-/* AI-Excel — помощник и файлы на сервере внутри табличного редактора.
+/* AI Таблицы — помощник и файлы на сервере внутри табличного редактора.
  *
  * Панель в браузере разговаривает с моделью через api/assistant.php, а действия
  * выполняет в самом редакторе через window.aiexcel (apps/gridcraft-web/src/web/bridge.rs):
@@ -552,7 +552,7 @@
   function showEmpty() {
     log.innerHTML = `<div class="st-empty">
       <h3>Чем помочь?</h3>
-      <p>Спросите, где найти функцию в AI-Excel, или попросите посчитать, проверить, оформить таблицу или построить диаграмму за вас.</p>
+      <p>Спросите, где найти функцию в AI Таблицы, или попросите посчитать, проверить, оформить таблицу или построить диаграмму за вас.</p>
       <button class="st-mini primary st-start-tpl">Быстрые задачи</button>
       <div class="st-chips">
         <button class="st-chip" data-act="1">Оформи данные как таблицу, добавь строку итогов и подбери ширину столбцов</button>
@@ -799,7 +799,7 @@
     try {
       r = await post(payload);
     } catch (e) {
-      console.warn('AI-Excel: запрос к помощнику оборвался', e);
+      console.warn('AI Таблицы: запрос к помощнику оборвался', e);
       if (!hasImages(payload)) throw new Error(await explainNoAnswer(took()));
       try { r = await post(withoutImages(payload)); } catch { throw new Error(await explainNoAnswer(took())); }
       tellImagesBlocked();
@@ -1798,7 +1798,7 @@
           const id = ui && ui.theme;
           if (typeof id === 'string') applyPanelTheme(id.toLowerCase());
           // Заголовок вкладки браузера — имя документа (окно браузера редактор сам не переименует).
-          if (ui && typeof ui.title === 'string') document.title = ui.title ? `${ui.title}${ui.dirty ? ' •' : ''} — AI-Excel` : 'AI-Excel';
+          if (ui && typeof ui.title === 'string') document.title = ui.title ? `${ui.title}${ui.dirty ? ' •' : ''} — AI Таблицы` : 'AI Таблицы';
         } catch { /* не важно */ }
       }
       await sleep(2000);
@@ -1880,7 +1880,7 @@
       try {
         const r = await fetch('fonts/' + encodeURIComponent(f.file));
         if (r.ok) VC().addFont(f.file, new Uint8Array(await r.arrayBuffer()));
-      } catch (e) { console.warn('AI-Excel: шрифт ' + f.file, e); }
+      } catch (e) { console.warn('AI Таблицы: шрифт ' + f.file, e); }
     }
   }
 

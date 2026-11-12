@@ -206,7 +206,7 @@ impl Default for Workbook {
 }
 
 /// What new sheets are called before their number: `Sheet` (Excel in English), or the interface
-/// language's word (AI-Excel sets `Лист`, as Russian Excel names them).
+/// language's word (AI Таблицы sets `Лист`, as Russian Excel names them).
 static SHEET_STEM: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
 
 /// Set the word new sheets are named with (`Лист` → `Лист1`, `Лист2`…). Blank restores `Sheet`.

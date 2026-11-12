@@ -1,6 +1,6 @@
 //! The browser shell: web `Services`, drag-and-drop, and the eframe web runner.
 //!
-//! AI-Excel: the page's assistant panel and server files talk to the app through
+//! AI Таблицы: the page's assistant panel and server files talk to the app through
 //! `window.aiexcel` ([`bridge`]); saves go to the page, the title bar's house leads back to the
 //! site, and the AI chip by the selection opens the page's AI menu.
 
@@ -56,7 +56,7 @@ pub fn start() {
                 options,
                 Box::new(move |cc| {
                     let inbox: Inbox = Inbox::default();
-                    // AI-Excel: in the Russian interface (the first start's) new sheets are «Лист1»,
+                    // AI Таблицы: in the Russian interface (the first start's) new sheets are «Лист1»,
                     // «Лист2»…, as in Russian Excel. Set before the first workbook is made.
                     let saved_ui = stored(crate::prefs::UI_KEY).and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
                     let russian = saved_ui
@@ -95,7 +95,7 @@ pub fn start() {
                     // Preferences from an earlier visit (#1562), as the desktop app reads `ui.json`
                     // and `prefs.json`; a saved language replaces the browser's.
                     let (stored_ui, stored_prefs) = (stored(crate::prefs::UI_KEY), stored(crate::prefs::PREFS_KEY));
-                    // AI-Excel's first start: the Russian interface and the Brand theme (Light, Dark and
+                    // AI Таблицы's first start: the Russian interface and the Brand theme (Light, Dark and
                     // System stay in File › Options and the View tab).
                     let first_ui = stored_ui.is_none();
                     let first_prefs = stored_prefs.is_none();
@@ -131,7 +131,7 @@ pub fn start() {
             match result {
                 Ok(()) => el.remove(),
                 Err(e) => el.set_inner_html(&format!(
-                    "<p>AI-Excel не запустился: {}</p><p>Нужен браузер с WebGPU или WebGL2: свежий Chrome, Edge, Firefox или Safari.</p>",
+                    "<p>AI Таблицы не запустился: {}</p><p>Нужен браузер с WebGPU или WebGL2: свежий Chrome, Edge, Firefox или Safari.</p>",
                     format!("{e:?}").replace('&', "&amp;").replace('<', "&lt;")
                 )),
             }
@@ -264,7 +264,7 @@ fn services(inbox: Inbox, ctx: egui::Context) -> Services {
             }
         })),
         inbox: Some(inbox),
-        // AI-Excel: saves go to the page (the user's files on the server) while it takes them.
+        // AI Таблицы: saves go to the page (the user's files on the server) while it takes them.
         save_to_page: Some(Box::new(bridge::save_to_page)),
         // The title bar's way back to the site (studio/config.js: homeUrl).
         go_home: Some(Box::new(go_home)),
@@ -414,7 +414,7 @@ fn download(name: &str, bytes: &[u8]) -> Result<(), String> {
     let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
     let window = web_sys::window().ok_or("no window")?;
 
-    // AI-Excel: a copy for the computer is an ordinary download (into Downloads), the same in every
+    // AI Таблицы: a copy for the computer is an ordinary download (into Downloads), the same in every
     // browser; the workbook itself lives in «Мои книги» on the server. The browser's own Save As
     // window (showSaveFilePicker) confused people and needs a user gesture an export from the
     // editor often lacks. `?picker` brings it back.
