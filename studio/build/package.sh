@@ -112,7 +112,7 @@ pad_file() {
     *.php) tail -c 3 "$1" | grep -q '?>' || printf '\n// build %s %s\n' "$BUILD" "$PAD" >>"$1" ;;
   esac
 }
-while IFS= read -r f; do pad_file "$f"; done < <(find "$APP" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.php' \) | grep -vE '[-_][0-9a-f]{16}[-_.][^/]*$')
+while IFS= read -r f; do pad_file "$f"; done < <(find "$APP" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.php' \) | grep -vE '([-_][0-9a-f]{12,20}[-_.][^/]*$|/snippets/)')
 cat "$APP"/b/*/index.html | grep -q "<!-- build $BUILD " || { echo "error: the page has no build padding" >&2; exit 1; }
 ZIP="$DIST/ai-excel-build-$BUILD-$BUILD_DATE.zip"
 rm -f "$ZIP"
