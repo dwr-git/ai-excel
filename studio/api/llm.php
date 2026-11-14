@@ -1,7 +1,7 @@
 <?php
 // studio/api/llm.php — откуда помощник берёт модель и как с ней разговаривает.
-// Один и тот же файл во всех наших приложениях (AI-Word, AI-Excel, AI-PowerPoint, AI-Acrobat,
-// AI-Photoshop, AI-Illustrator, AI-InDesign, AI-Figma).
+// Один и тот же файл во всех наших приложениях (AI Текст, AI Таблицы, AI Презентации, AI PDF, AI Фото,
+// AI Вектор, AI Вёрстка, AI Макеты, AI Чертежи, AI Анимация, AI Звук, AI Видео).
 //
 // Главный источник настроек — файл .env вашей системы. Он ищется сам: рядом с приложением и выше
 // по папкам (…/ai-word/api → …/ai-word → корень сайта → его родитель…), а также по пути из
@@ -9,8 +9,9 @@
 // запущен со старыми переменными, а .env поменяли, работает то, что написано в .env.
 //
 // Порядок для каждого параметра (первое найденное):
-//   адрес:   <APP>_LLM_URL, <APP>_OLLAMA_URL  →  LLM_URL, OLLAMA_URL, OLLAMA_HOST, OPENAI_BASE_URL,
-//            OLLAMA_IP + OLLAMA_PORT  →  $url_ollama из config.php системы  →  http://127.0.0.1:11434
+//   адрес:   <APP>_LLM_URL, <APP>_OLLAMA_URL  →  LLM_URL, OLLAMA_URL, OPENAI_BASE_URL (берутся как есть);
+//            без них — первый отвечающий из: OLLAMA_IP + OLLAMA_PORT, OLLAMA_HOST (без порта — OLLAMA_PORT
+//            или 11434, как у самой Ollama), $url_ollama из config.php системы, http://127.0.0.1:11434
 //   модель:  <APP>_MODEL  →  GLOBAL_MODEL, LLM_MODEL, OLLAMA_MODEL, CHAT_MODEL, DEFAULT_MODEL
 //            →  $global_model из config.php  →  первая модель, которую отдаёт сам сервер модели
 //   контекст: <APP>_CONTEXT  →  GLOBAL_MODEL_CONTEXT, LLM_CONTEXT, OLLAMA_CTXSIZE, OLLAMA_NUM_CTX
@@ -145,30 +146,99 @@ function studio_llm_cache_put(string $key, array $value): void
     @file_put_contents(studio_llm_cache_file($key), json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
 }
 
+/** Адрес с http:// в начале и без / в конце. $defaultPort — порт, если в адресе его нет ('' — не добавлять). */
+function studio_llm_norm_url(string $url, string $defaultPort): string
+{
+    $url = trim($url);
+    if (!preg_match('#^https?://#i', $url)) {
+        $url = 'http://' . $url;
+    }
+    $url = rtrim($url, '/');
+    $p = parse_url($url);
+    if (!is_array($p) || !isset($p['host'])) {
+        return $url;
+    }
+    $host = $p['host'] === '0.0.0.0' ? '127.0.0.1' : $p['host']; // 0.0.0.0 — адрес прослушивания, не адрес сервера
+    $port = isset($p['port']) ? (string)$p['port'] : $defaultPort;
+    return strtolower((string)($p['scheme'] ?? 'http')) . '://' . $host . ($port !== '' ? ':' . $port : '') . ($p['path'] ?? '');
+}
+
+/** Кандидаты адреса сервера модели, когда явный адрес не задан: [[адрес, откуда], …] по порядку. */
+function studio_llm_url_candidates(): array
+{
+    $out = [];
+    [$port] = studio_setting(['OLLAMA_PORT']);
+    $port = preg_match('/^\d{1,5}$/', $port) ? $port : '11434';
+    [$ip, $fromIp] = studio_setting(['OLLAMA_IP']);
+    if ($ip !== '') {
+        $out[] = [studio_llm_norm_url($ip, $port), $fromIp . ' + OLLAMA_PORT'];
+    }
+    [$host, $fromHost] = studio_setting(['OLLAMA_HOST']);
+    if ($host !== '') {
+        // Как у самой Ollama: в OLLAMA_HOST без порта подразумевается OLLAMA_PORT / 11434.
+        $out[] = [studio_llm_norm_url($host, $port), $fromHost . ($port !== '11434' ? ' + OLLAMA_PORT' : ' (порт 11434)')];
+        $out[] = [studio_llm_norm_url($host, ''), $fromHost];
+    }
+    if (($g = studio_global('url_ollama')) !== '') {
+        $out[] = [studio_llm_norm_url($g, ''), 'config.php системы ($url_ollama)'];
+    }
+    $out[] = ['http://127.0.0.1:11434', 'по умолчанию'];
+    $seen = [];
+    return array_values(array_filter($out, function ($c) use (&$seen) {
+        if (isset($seen[$c[0]])) {
+            return false;
+        }
+        $seen[$c[0]] = true;
+        return true;
+    }));
+}
+
+/** Первый кандидат, который отвечает как сервер модели (/api/tags или /v1/models); кэш 5 минут. */
+function studio_llm_pick_url(array $cands): array
+{
+    if (count($cands) === 1) {
+        return $cands[0];
+    }
+    $cacheKey = 'url|' . implode('|', array_column($cands, 0));
+    $cached = studio_llm_cache_get($cacheKey, 300);
+    if ($cached !== null && isset($cached['i'], $cands[$cached['i']])) {
+        return $cands[$cached['i']];
+    }
+    [$key] = studio_setting(['LLM_API_KEY', 'OPENAI_API_KEY', 'OLLAMA_API_KEY']);
+    $probe = ['key' => $key];
+    $pick = 0;
+    foreach ($cands as $i => [$u]) {
+        foreach ([$u . '/api/tags', studio_llm_openai_base($u) . '/models'] as $test) {
+            [$code, $body] = studio_llm_http($probe, 'GET', $test, null, 4, 2);
+            $j = json_decode($body, true);
+            if ($code === 200 && is_array($j) && (isset($j['models']) || isset($j['data']))) {
+                $pick = $i;
+                break 2;
+            }
+        }
+    }
+    // Если не ответил никто, $pick = 0: берём первый, и ошибка в панели покажет, куда шли.
+    studio_llm_cache_put($cacheKey, ['i' => $pick]);
+    return $cands[$pick];
+}
+
 /** Настройки модели для приложения с приставкой $prefix (например AI_WORD). */
 function studio_llm_config(string $prefix): array
 {
     $src = [];
     // ----- адрес
+    // Явный адрес (<APP>_LLM_URL, <APP>_OLLAMA_URL, LLM_URL, OLLAMA_URL, OPENAI_BASE_URL) берётся как есть.
+    // Иначе собираются кандидаты — OLLAMA_IP + OLLAMA_PORT, OLLAMA_HOST, $url_ollama из config.php,
+    // http://127.0.0.1:11434 — и берётся первый, который действительно отвечает как сервер модели.
     [$url, $from] = studio_setting(["{$prefix}_LLM_URL", "{$prefix}_OLLAMA_URL"]);
     if ($url === '') {
-        [$url, $from] = studio_setting(['LLM_URL', 'OLLAMA_URL', 'OLLAMA_HOST', 'OPENAI_BASE_URL', 'OPENAI_API_BASE']);
+        [$url, $from] = studio_setting(['LLM_URL', 'OLLAMA_URL', 'OPENAI_BASE_URL', 'OPENAI_API_BASE']);
     }
-    if ($url === '') {
-        [$ip, $fromIp] = studio_setting(['OLLAMA_IP']);
-        if ($ip !== '') {
-            [$port] = studio_setting(['OLLAMA_PORT']);
-            $url = $ip . ':' . ($port !== '' ? $port : '11434');
-            $from = $fromIp . ' + OLLAMA_PORT';
-        }
+    if ($url !== '') {
+        $url = studio_llm_norm_url($url, '');
+    } else {
+        [$url, $from] = studio_llm_pick_url(studio_llm_url_candidates());
     }
-    if ($url === '' && ($g = studio_global('url_ollama')) !== '') {
-        [$url, $from] = [$g, 'config.php системы ($url_ollama)'];
-    }
-    if ($url === '') {
-        [$url, $from] = ['127.0.0.1:11434', 'по умолчанию'];
-    }
-    $url = rtrim(preg_match('#^https?://#i', $url) ? $url : 'http://' . $url, '/');
     $src['url'] = $from;
 
     // ----- протокол
@@ -214,21 +284,21 @@ function studio_llm_config(string $prefix): array
 }
 
 /** HTTP-запрос к серверу модели. [код, тело, ошибка curl]. */
-function studio_llm_http(array $cfg, string $method, string $url, ?string $body, int $timeout): array
+function studio_llm_http(array $cfg, string $method, string $url, ?string $body, int $timeout, int $connect = 5): array
 {
     $ch = curl_init($url);
     $headers = ['Accept: application/json'];
     if ($body !== null) {
         $headers[] = 'Content-Type: application/json';
     }
-    if ($cfg['key'] !== '') {
+    if (($cfg['key'] ?? '') !== '') {
         $headers[] = 'Authorization: Bearer ' . $cfg['key'];
     }
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_CONNECTTIMEOUT => $connect,
         CURLOPT_TIMEOUT => $timeout,
     ]);
     if ($body !== null) {
@@ -574,7 +644,7 @@ function studio_llm_post(array $cfg, string $url, array $payload, int $timeout, 
 {
     $ch = curl_init($url);
     $headers = ['Content-Type: application/json', 'Accept: application/json'];
-    if ($cfg['key'] !== '') {
+    if (($cfg['key'] ?? '') !== '') {
         $headers[] = 'Authorization: Bearer ' . $cfg['key'];
     }
     curl_setopt_array($ch, [
@@ -622,7 +692,9 @@ function studio_llm_post(array $cfg, string $url, array $payload, int $timeout, 
         }
     }
     if ($err === '' && $raw === null) {
-        $err = 'модель вернула непонятный ответ (HTTP ' . $http . ')';
+        $err = $http >= 300 && $http < 400
+            ? 'по этому адресу отвечает не сервер модели, а веб-сайт (переадресация, HTTP ' . $http . '): проверьте адрес и порт — у Ollama обычно :11434'
+            : 'модель вернула непонятный ответ (HTTP ' . $http . ')';
     }
     return ['http' => $http, 'error' => $err, 'raw' => $raw];
 }
