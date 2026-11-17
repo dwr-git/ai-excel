@@ -694,7 +694,73 @@ function studio_llm_post(array $cfg, string $url, array $payload, int $timeout, 
     return ['http' => $http, 'error' => $err, 'raw' => $raw];
 }
 
-/** Ответ Ollama или OpenAI → общий вид. */
+/**
+ * Вызовы инструментов, написанные текстом, и очищенный от разметки текст: [[вызов, …], текст].
+ * Понимает Qwen/GLM XML (<function=имя><parameter=ключ>значение</parameter></function>, в том числе
+ * с именами в кавычках и без начала вызова), GLM (<tool_call>имя<arg_key>…</arg_key><arg_value>…</arg_value>)
+ * и Hermes (<tool_call>{"name":…,"arguments":…}</tool_call>).
+ */
+function studio_llm_markup_calls(string $content): array
+{
+    if (!preg_match('~</?(?:tool_call|function|parameter|arg_key|arg_value)\b|<?function=|<?parameter=~', $content)) {
+        return [[], $content];
+    }
+    $calls = [];
+    $value = static function (string $raw) {
+        $raw = trim($raw);
+        $j = json_decode($raw, true);
+        return ($j !== null || $raw === 'null') ? $j : $raw;
+    };
+    $name = '["\']?([A-Za-z0-9_.\-]+)["\']?';
+    // Qwen/GLM XML: с обёрткой <tool_call> или без неё, с закрывающими тегами или без.
+    if (preg_match_all('~(?:<tool_call>\s*)?<?function=' . $name . '>(.*?)(?:</function>(?:\s*</tool_call>)?|(?=<?function=)|\z)~s', $content, $m, PREG_SET_ORDER)) {
+        foreach ($m as $one) {
+            $args = [];
+            if (preg_match_all('~<?parameter=' . $name . '>(.*?)(?:</parameter>|(?=<?parameter=)|(?=</function>)|\z)~s', $one[2], $pm, PREG_SET_ORDER)) {
+                foreach ($pm as $p) {
+                    $args[$p[1]] = $value($p[2]);
+                }
+            }
+            $calls[] = ['function' => ['name' => $one[1], 'arguments' => $args ?: new stdClass()]];
+            $content = str_replace($one[0], '', $content);
+        }
+    }
+    // GLM: <tool_call>имя <arg_key>k</arg_key> <arg_value>v</arg_value> … </tool_call>
+    if (preg_match_all('~<tool_call>\s*([A-Za-z0-9_.\-]+)\s*((?:<arg_key>.*?</arg_key>\s*<arg_value>.*?</arg_value>\s*)*)</tool_call>~s', $content, $m, PREG_SET_ORDER)) {
+        foreach ($m as $one) {
+            $args = [];
+            if (preg_match_all('~<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>~s', $one[2], $pm, PREG_SET_ORDER)) {
+                foreach ($pm as $p) {
+                    $args[trim($p[1])] = $value($p[2]);
+                }
+            }
+            $calls[] = ['function' => ['name' => $one[1], 'arguments' => $args ?: new stdClass()]];
+            $content = str_replace($one[0], '', $content);
+        }
+    }
+    // Hermes: JSON внутри <tool_call>.
+    if (preg_match_all('~<tool_call>\s*(\{.*?\})\s*</tool_call>~s', $content, $m, PREG_SET_ORDER)) {
+        foreach ($m as $one) {
+            $j = json_decode($one[1], true);
+            if (is_array($j) && isset($j['name'])) {
+                $args = $j['arguments'] ?? ($j['parameters'] ?? []);
+                if (is_string($args)) {
+                    $args = json_decode($args, true) ?: [];
+                }
+                $calls[] = ['function' => ['name' => (string)$j['name'], 'arguments' => $args ?: new stdClass()]];
+                $content = str_replace($one[0], '', $content);
+            }
+        }
+    }
+    // Обрывки разметки, которые остались после того, как сервер сам разобрал вызов:
+    // «<parameter="query">…</parameter>», «</function>», «<tool_call>» и т. п.
+    $content = preg_replace('~<?parameter=' . $name . '>.*?(?:</parameter>|\z)~s', '', $content) ?? $content;
+    $content = preg_replace('~<arg_key>.*?</arg_key>|<arg_value>.*?</arg_value>~s', '', $content) ?? $content;
+    $content = preg_replace('~</?(?:tool_call|function|parameter|arg_key|arg_value)\b[^>]*>|<?function=' . $name . '>~', '', $content) ?? $content;
+    return [$calls, trim($content)];
+}
+
+/** Ответ сервера (Ollama или OpenAI) → {ok, content, tool_calls, …} в одном виде. */
 function studio_llm_normalize(string $api, array $res, string $model, int $http, bool $textTools): array
 {
     if ($api === 'openai') {
@@ -730,6 +796,14 @@ function studio_llm_normalize(string $api, array $res, string $model, int $http,
     }
     // Размышления модели (<think>…</think>) пользователю не показываем.
     $content = trim((string)preg_replace('#<think>[\s\S]*?</think>#', '', (string)$content));
+    // Вызовы инструментов, которые модель написала текстом (разметка Qwen/GLM/Hermes): если сервер
+    // их не разобрал — разбираем сами; если разобрал, но оставил обрывки в тексте — убираем их,
+    // чтобы в панели не появлялись сообщения вроде «</function>».
+    [$markupCalls, $content] = studio_llm_markup_calls($content);
+    if (!$calls && $markupCalls) {
+        $calls = $markupCalls;
+        $textTools = true;
+    }
     return [
         'ok' => true,
         'http' => $http,
